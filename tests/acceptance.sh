@@ -49,9 +49,9 @@ test -f "$skill_file"
 test -f "$protocol_reference"
 
 candidate_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
-published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.1.0'
+published_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
 grep -F -q -- "$candidate_skill_source" "$repository_root/README.md"
-grep -F -q -- "$published_baseline_source" "$repository_root/tests/distribution.sh"
+grep -F -q -- "$published_skill_source" "$repository_root/tests/distribution.sh"
 for tested_agent in \
   'Codex' \
   'Claude Code' \

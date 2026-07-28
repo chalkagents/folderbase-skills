@@ -16,7 +16,7 @@ skills without installing:
 
 ```sh
 DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
-  https://github.com/chalkagents/folderbase-skills/tree/v0.2.0 \
+  https://github.com/chalkagents/folderbase-skills/tree/v0.2.1 \
   --list
 ```
 
@@ -24,7 +24,7 @@ Install the skill into the current project for the detected agent:
 
 ```sh
 DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
-  https://github.com/chalkagents/folderbase-skills/tree/v0.2.0 \
+  https://github.com/chalkagents/folderbase-skills/tree/v0.2.1 \
   --skill work-with-folderbase \
   --copy \
   --yes
@@ -42,7 +42,7 @@ Folderbase:
 ```sh
 cargo install \
   --git https://github.com/chalkagents/folderbase.git \
-  --rev f5ae84c5c247274a23cef901367fb83533a64f4d \
+  --rev 3a3e9df836a1fe0a2f33946205f899cc9483dc1b \
   --locked \
   folderbase-cli
 ```
@@ -52,7 +52,7 @@ Without a supported official CLI, the skill stays read-only.
 ## Contract
 
 - One portable skill: `work-with-folderbase`
-- Folderbase Core and CLI: `0.2.0`
+- Folderbase Core and CLI: `0.2.1`
 - Folderbase Protocol: `0.1` with the declared `0.2` manifest additions
 - Template Protocol: `0.2`
 

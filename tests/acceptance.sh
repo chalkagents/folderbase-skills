@@ -22,6 +22,7 @@ for root_file in \
   NOTICE \
   SECURITY.md \
   docs/test-evidence/core-v02-contract-red.md \
+  docs/test-evidence/core-v021-contract-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
   .gitignore \
@@ -48,10 +49,10 @@ test -x "$repository_root/tests/distribution.sh"
 test -f "$skill_file"
 test -f "$protocol_reference"
 
-candidate_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
-published_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
+candidate_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.1'
+published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
 grep -F -q -- "$candidate_skill_source" "$repository_root/README.md"
-grep -F -q -- "$published_skill_source" "$repository_root/tests/distribution.sh"
+grep -F -q -- "$published_baseline_source" "$repository_root/tests/distribution.sh"
 for tested_agent in \
   'Codex' \
   'Claude Code' \
@@ -113,7 +114,7 @@ for required_text in \
   'folderbase inspect' \
   'folderbase init' \
   'folderbase --version' \
-  'folderbase 0.2.0' \
+  'folderbase 0.2.1' \
   '--dry-run' \
   'Preview, then initialize only after explicit user approval' \
   'plan_digest' \
@@ -160,11 +161,11 @@ done
 
 for required_text in \
   'https://github.com/chalkagents/folderbase' \
-  'f5ae84c5c247274a23cef901367fb83533a64f4d' \
-  'v0.2.0' \
+  '3a3e9df836a1fe0a2f33946205f899cc9483dc1b' \
+  'v0.2.1' \
   'Protocol 0.1' \
   'Template Protocol 0.2' \
-  '0.2.0'
+  '0.2.1'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
 done
@@ -188,6 +189,8 @@ grep -F -q -- 'CORE_CONTRACT_RED_EXIT=1' "$template_red_evidence"
 grep -F -q -- 'worktree remove --force' "$template_red_evidence"
 grep -F -q -- 'CORE_V02_CONTRACT_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/core-v02-contract-red.md"
+grep -F -q -- 'CORE_V021_CONTRACT_RED_EXIT=1' \
+  "$repository_root/docs/test-evidence/core-v021-contract-red.md"
 
 for local_install_contract in \
   'verify_local_install codex .agents/skills' \

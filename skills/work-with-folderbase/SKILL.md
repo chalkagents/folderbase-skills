@@ -57,8 +57,8 @@ Do not read or edit `.folderbase/` internals directly.
   operation that supports that change.
 - If the official CLI is missing, permit bounded read-only navigation of
   ordinary files only. Do not fabricate protocol records.
-- If the protocol or CLI minor version is outside the tested range, remain
-  read-only until compatibility is verified.
+- If the protocol is outside the tested range or the CLI is not the exact
+  tested release, remain read-only until compatibility is verified.
 
 ## Verify mutation tooling
 
@@ -68,7 +68,7 @@ Before any command that can write, verify the official CLI:
 folderbase --version
 ```
 
-Require the exact tested output `folderbase 0.2.0`. A missing CLI, a different
+Require the exact tested output `folderbase 0.2.1`. A missing CLI, a different
 version, or an unfamiliar command surface keeps the session read-only. Do not
 install, upgrade, downgrade, or substitute a CLI without explicit user
 approval.
@@ -222,7 +222,7 @@ The selected template is starting guidance, not a rigid taxonomy. A Folderbase
 remains an ordinary folder: its useful structure may expand as work and life
 change, and a later separately reviewed migration may reorganize it. Template
 origin does not require continuing layout conformance. Do not invent or invoke
-a template expansion command on CLI 0.2.0.
+a template expansion command on CLI 0.2.1.
 
 ## Navigate all file types
 

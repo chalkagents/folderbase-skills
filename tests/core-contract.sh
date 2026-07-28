@@ -10,7 +10,7 @@ temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
 core_repository=https://github.com/chalkagents/folderbase.git
-core_ref=${FOLDERBASE_CORE_REF:-f5ae84c5c247274a23cef901367fb83533a64f4d}
+core_ref=${FOLDERBASE_CORE_REF:-3a3e9df836a1fe0a2f33946205f899cc9483dc1b}
 
 read_plan_digest() {
   python3 - "$1" <<'PY'
@@ -100,7 +100,7 @@ else
 fi
 
 test -x "$folderbase"
-test "$("$folderbase" --version)" = 'folderbase 0.2.0'
+test "$("$folderbase" --version)" = 'folderbase 0.2.1'
 
 "$folderbase" --help >"$temporary_root/folderbase-help.txt"
 "$folderbase" init --help >"$temporary_root/init-help.txt"

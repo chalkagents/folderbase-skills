@@ -19,6 +19,7 @@ for root_file in \
   LICENSE \
   NOTICE \
   SECURITY.md \
+  docs/test-evidence/skills-v01-hardening-red.md \
   .gitignore \
   package.json \
   package-lock.json \
@@ -85,6 +86,10 @@ test ! -d "$skill_directory/hooks"
 test ! -d "$skill_directory/scripts"
 test ! -d "$skill_directory/assets"
 
+normalized_skill_text=$(
+  tr '\n' ' ' <"$skill_file" |
+    tr -s '[:space:]' ' '
+)
 for required_text in \
   'references/protocol-surface.md' \
   'FOLDERBASE.md' \
@@ -110,7 +115,7 @@ for required_text in \
   'secret-shaped path names' \
   'source changed after planning'
 do
-  grep -F -i -q -- "$required_text" "$skill_file"
+  grep -F -i -q -- "$required_text" <<<"$normalized_skill_text"
 done
 
 for required_text in \

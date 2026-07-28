@@ -179,10 +179,10 @@ changes. Never self-approve. Only after that second approval may the agent run
 Folderbase afterward. Use `reopen`, `recover`, or `rollback` only for the
 specific durable migration and state the user authorized.
 
-Application revalidates the approved source inventory. If the source changed after planning,
-stop on `migration_source_changed`; do not regenerate, reapprove, or retry the
-migration on the user's behalf. Re-analyze and present the changed proposal for
-a new decision.
+Application revalidates the approved source inventory. If the source changed
+after planning, stop on `migration_source_changed`; do not regenerate,
+reapprove, or retry the migration on the user's behalf. Re-analyze and present
+the changed proposal for a new decision.
 
 ## Fail closed
 

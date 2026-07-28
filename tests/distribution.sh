@@ -14,7 +14,7 @@ trap 'rm -R "$temporary_root"' EXIT
 
 export DISABLE_TELEMETRY=1
 skills_cli="$repository_root/node_modules/.bin/skills"
-published_source=${FOLDERBASE_SKILLS_SOURCE:-https://github.com/chalkagents/folderbase-skills/tree/v0.1.0}
+published_source=https://github.com/chalkagents/folderbase-skills/tree/v0.1.0
 published_ref=v0.1.0
 published_hash=512d76f6c2c20f1ab03f0a7657d188d6432d853d1200745fda82cabcf5e8f56f
 published_skill_sha=02bd44cbc2b606fb279fe4a334bb1fb3fea6eb16ba21768f7e2027625198a3ce
@@ -37,23 +37,31 @@ if ! grep -Fq 'work-with-folderbase' <<<"$published_list_output"; then
   exit 1
 fi
 
-verify_local_install() {
-  local agent=$1
-  local install_directory=$2
-  local project_root="$temporary_root/local-$agent"
-  local installed_skill="$project_root/$install_directory/work-with-folderbase"
+install_skill() {
+  local source=$1
+  local agent=$2
+  local project_root=$3
 
   mkdir -p "$project_root"
   git -C "$project_root" init --quiet
   (
     cd "$project_root"
     "$skills_cli" add \
-      "$repository_root" \
+      "$source" \
       --agent "$agent" \
       --skill work-with-folderbase \
       --copy \
       --yes
   )
+}
+
+verify_local_install() {
+  local agent=$1
+  local install_directory=$2
+  local project_root="$temporary_root/local-$agent"
+  local installed_skill="$project_root/$install_directory/work-with-folderbase"
+
+  install_skill "$repository_root" "$agent" "$project_root"
 
   cmp \
     "$repository_root/skills/work-with-folderbase/SKILL.md" \
@@ -70,17 +78,7 @@ verify_published_install() {
   local project_root="$temporary_root/published-$agent"
   local installed_skill="$project_root/$install_directory/work-with-folderbase"
 
-  mkdir -p "$project_root"
-  git -C "$project_root" init --quiet
-  (
-    cd "$project_root"
-    "$skills_cli" add \
-      "$published_source" \
-      --agent "$agent" \
-      --skill work-with-folderbase \
-      --copy \
-      --yes
-  )
+  install_skill "$published_source" "$agent" "$project_root"
 
   test -f "$installed_skill/SKILL.md"
   test -f "$installed_skill/references/protocol-surface.md"

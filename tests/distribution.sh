@@ -14,11 +14,11 @@ trap 'rm -R "$temporary_root"' EXIT
 
 export DISABLE_TELEMETRY=1
 skills_cli="$repository_root/node_modules/.bin/skills"
-published_source=https://github.com/chalkagents/folderbase-skills/tree/v0.1.0
-published_ref=v0.1.0
-published_hash=512d76f6c2c20f1ab03f0a7657d188d6432d853d1200745fda82cabcf5e8f56f
-published_skill_sha=02bd44cbc2b606fb279fe4a334bb1fb3fea6eb16ba21768f7e2027625198a3ce
-published_reference_sha=cbc8e28a2ead644bc1348d350b80ade5a9a2a8545cc397944c7b717c7ba8af12
+published_source=${FOLDERBASE_SKILLS_PUBLISHED_SOURCE:-https://github.com/chalkagents/folderbase-skills/tree/v0.1.0}
+published_ref=${FOLDERBASE_SKILLS_PUBLISHED_REF:-v0.1.0}
+published_hash=${FOLDERBASE_SKILLS_PUBLISHED_HASH:-512d76f6c2c20f1ab03f0a7657d188d6432d853d1200745fda82cabcf5e8f56f}
+published_skill_sha=${FOLDERBASE_SKILLS_SKILL_SHA:-02bd44cbc2b606fb279fe4a334bb1fb3fea6eb16ba21768f7e2027625198a3ce}
+published_reference_sha=${FOLDERBASE_SKILLS_REFERENCE_SHA:-cbc8e28a2ead644bc1348d350b80ade5a9a2a8545cc397944c7b717c7ba8af12}
 test -x "$skills_cli"
 
 local_list_output=$(
@@ -110,7 +110,13 @@ PY
 
 verify_local_install codex .agents/skills
 verify_local_install claude-code .claude/skills
+verify_local_install cursor .agents/skills
+verify_local_install hermes-agent .hermes/skills
+verify_local_install openclaw skills
 verify_published_install codex .agents/skills
 verify_published_install claude-code .claude/skills
+verify_published_install cursor .agents/skills
+verify_published_install hermes-agent .hermes/skills
+verify_published_install openclaw skills
 
 printf '%s\n' 'Local and immutable published Folderbase skill installs are valid.'

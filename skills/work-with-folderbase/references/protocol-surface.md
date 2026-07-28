@@ -7,10 +7,10 @@ text, or implementation logic.
 
 ## Compatibility pin
 
-- Verified release tag: `v0.1.0`
+- Verified release tag: `v0.2.0`
 - Verified core commit:
-  `2daf6968387e8c8111dfa03a922ed8866c015e15`
-- Crate and CLI version: `0.1.0`
+  `f5ae84c5c247274a23cef901367fb83533a64f4d`
+- Crate and CLI version: `0.2.0`
 - Folderbase Protocol 0.1
 - Folderbase manifest schema additions in Protocol 0.2
 - Template Protocol 0.2
@@ -21,9 +21,9 @@ read-only until this reference and the acceptance suite are updated.
 
 ## Authoritative documents
 
-- [Protocol specification](https://github.com/chalkagents/folderbase/blob/2daf6968387e8c8111dfa03a922ed8866c015e15/docs/protocol-spec.md)
-- [Template protocol](https://github.com/chalkagents/folderbase/blob/2daf6968387e8c8111dfa03a922ed8866c015e15/docs/template-protocol.md)
-- [Schemas and conformance artifacts](https://github.com/chalkagents/folderbase/blob/2daf6968387e8c8111dfa03a922ed8866c015e15/protocol/README.md)
+- [Protocol specification](https://github.com/chalkagents/folderbase/blob/f5ae84c5c247274a23cef901367fb83533a64f4d/docs/protocol-spec.md)
+- [Template protocol](https://github.com/chalkagents/folderbase/blob/f5ae84c5c247274a23cef901367fb83533a64f4d/docs/template-protocol.md)
+- [Schemas and conformance artifacts](https://github.com/chalkagents/folderbase/blob/f5ae84c5c247274a23cef901367fb83533a64f4d/protocol/README.md)
 
 ## Stable CLI operations
 
@@ -44,6 +44,9 @@ Discover the installed surface with `folderbase --help` and
 `folderbase init --help`. For the exact Core and CLI pin above, `init` accepts
 `--dry-run`, `--name`, `--kind`, `--no-agent-adapters`, `--template`,
 repeatable `--answer QUESTION_ID=ANSWER`, and `--json`.
+It also returns an opaque `plan_digest` from `--dry-run`, accepts
+`--expected-plan-digest DIGEST` for apply, and returns
+`applied_plan_digest` on success.
 
 The immutable release contains these built-in packages:
 
@@ -58,7 +61,7 @@ The immutable release contains these built-in packages:
 | `folderbase.custom@0.2.0` | `custom` | A boundary no other starter fits honestly | `purpose`, `current_state`, `next_action` |
 
 `folderbase.project@0.2.1` is also discoverable in the immutable release, but
-its rendered entry lacks sections that CLI 0.1.0 validation requires. Preview
+its rendered entry lacks sections that CLI 0.2.0 validation requires. Preview
 it only when diagnosing existing provenance; do not apply it. New project
 initialization must use `folderbase.project@0.2.2`. Both packages take the same
 three required text answers.
@@ -69,7 +72,7 @@ optional answer when the name is already known. The CLI validates question IDs,
 answer types, required answers, duplicate answers, and exact built-in template
 versions. There is no external template loader, template-list command,
 post-initialization template expansion command, or in-place reorganization
-command in CLI 0.1.0.
+command in CLI 0.2.0.
 
 Packages use additive `create_if_missing` artifacts. They preserve every
 existing target and record template provenance as an origin, not as ongoing

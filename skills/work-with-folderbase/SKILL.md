@@ -68,7 +68,7 @@ Before any command that can write, verify the official CLI:
 folderbase --version
 ```
 
-Require the exact tested output `folderbase 0.1.0`. A missing CLI, a different
+Require the exact tested output `folderbase 0.2.0`. A missing CLI, a different
 version, or an unfamiliar command surface keeps the session read-only. Do not
 install, upgrade, downgrade, or substitute a CLI without explicit user
 approval.
@@ -160,7 +160,7 @@ folderbase init "${init_arguments[@]:0:1}" \
 An agent harness should construct the equivalent argv list directly rather
 than first rendering shell text.
 
-## Initialize only after explicit user approval
+## Preview, then initialize only after explicit user approval
 
 Run `folderbase init` with the selected exact template, typed answers,
 `--dry-run`, and `--json`. This is the CLI-validated preview. It must add only
@@ -170,14 +170,15 @@ template's `create_if_missing` behavior is guidance, not permission to
 overwrite content.
 
 Explain the additions and preserved paths. Stop if the plan would overwrite,
-move, or delete anything. Approval binds the root, name, kind, exact template,
-answers, additions, and preserved paths; generated identity and timestamp
-values may differ when the CLI revalidates the plan. Immediately before
-applying, rerun the same argv with `--dry-run` and compare those material
-fields. Stop for renewed approval if they changed.
+move, or delete anything. The preview returns an opaque `plan_digest` with
+algorithm `sha256` and a canonical lowercase 64-character digest. Treat that
+digest as Core-owned approval identity: do not recompute it, decode the root
+marker, or manufacture a partial plan projection. Approval binds the exact
+request argv and the complete opaque digest.
 
-Proceed only after the user approves the current material preview. Remove only
-the `--dry-run` argument from the reviewed argv, then validate:
+Proceed only after the user approves the current preview. Reuse the exact same
+root, name, kind, template, typed answers, adapter choice, and ordering; remove
+only `--dry-run` and add the approved digest:
 
 ```sh
 folderbase init /path/to/folder \
@@ -187,21 +188,41 @@ folderbase init /path/to/folder \
   --answer "purpose=$purpose" \
   --answer "current_state=$current_state" \
   --answer "next_action=$next_action" \
+  --expected-plan-digest "$approved_plan_digest" \
   --json
 folderbase validate /path/to/folder --json
 ```
 
 Delegate creation and managed adapter insertion to `folderbase init`. Never
 hand-write `.folderbase/manifest.json`, `.folderbaseignore`, `FOLDERBASE.md`,
-`AGENTS.md`, or `CLAUDE.md` as a substitute. The CLI must revalidate
-preconditions and refuse clobbers. Compare the returned created and preserved
-paths with the approved material plan, then report and stop if they diverge.
+`AGENTS.md`, or `CLAUDE.md` as a substitute. The CLI must recompute the
+complete plan, require the expected digest, revalidate preconditions, and
+refuse stale or clobbering writes before mutation. Require the returned
+`applied_plan_digest` to be byte-identical to the approved `plan_digest`.
+Compare the returned created and preserved paths with the reviewed plan, then
+report and stop if they diverge.
+
+Once the mutation-capable `init` process launches, a nonzero exit, lost
+response, malformed result, or mismatched `applied_plan_digest` may follow
+partial or complete durable writes. Never run initialization again from that
+approval. Before probing, establish through the agent harness or process state
+that the original process has terminated; if termination cannot be established,
+do not interfere with it and report that completion is unknown. Once it has
+terminated, run `validate` first. Only a successful validation permits
+read-only `workspace list` and `workspace read` operations to describe the
+current Folderbase. A valid Folderbase proves only the observed current state:
+without the original successful result, the exact approval-bound initialization
+outcome remains unknown because these probes cannot prove the applied digest or
+path accounting. Report that distinction with the original error. If validation
+fails or is inconclusive, state that the initialization outcome is unknown,
+preserve every local byte, and ask the user for the minimum recovery decision.
+Never run initialization again merely because the read-only probe failed.
 
 The selected template is starting guidance, not a rigid taxonomy. A Folderbase
 remains an ordinary folder: its useful structure may expand as work and life
 change, and a later separately reviewed migration may reorganize it. Template
 origin does not require continuing layout conformance. Do not invent or invoke
-a template expansion command on CLI 0.1.0.
+a template expansion command on CLI 0.2.0.
 
 ## Navigate all file types
 

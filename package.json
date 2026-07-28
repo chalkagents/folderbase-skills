@@ -1,0 +1,11 @@
+{
+  "name": "folderbase-skills-ci",
+  "private": true,
+  "engines": {
+    "node": ">=22.20.0"
+  },
+  "devDependencies": {
+    "skills": "1.5.20",
+    "skills-ref": "0.1.5"
+  }
+}

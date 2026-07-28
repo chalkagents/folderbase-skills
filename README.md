@@ -16,7 +16,7 @@ skills without installing:
 
 ```sh
 DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
-  chalkagents/folderbase-skills \
+  https://github.com/chalkagents/folderbase-skills/tree/v0.1.0 \
   --list
 ```
 
@@ -24,14 +24,16 @@ Install the skill into the current project for the detected agent:
 
 ```sh
 DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
-  chalkagents/folderbase-skills \
+  https://github.com/chalkagents/folderbase-skills/tree/v0.1.0 \
   --skill work-with-folderbase \
   --copy \
   --yes
 ```
 
 Add `--global` for a user-level installation. The same skill supports Codex,
-Claude Code, and other Agent Skills-compatible harnesses.
+Claude Code, and other Agent Skills-compatible harnesses. The tag in the source
+URL is intentional: review and install an immutable Folderbase Skills release
+rather than whatever happens to be on the repository's moving default branch.
 
 Install the matching Folderbase CLI before asking an agent to mutate a
 Folderbase:

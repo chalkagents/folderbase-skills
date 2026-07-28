@@ -19,6 +19,7 @@ for root_file in \
   LICENSE \
   NOTICE \
   SECURITY.md \
+  docs/test-evidence/skills-v01-hardening-red.md \
   .gitignore \
   package.json \
   package-lock.json \
@@ -27,7 +28,8 @@ for root_file in \
   scripts/check-public-eclipse.sh \
   tests/acceptance.sh \
   tests/core-contract.sh \
-  tests/distribution.sh
+  tests/distribution.sh \
+  tests/fixtures/adversarial/untrusted-document.md
 do
   test -f "$repository_root/$root_file"
 done
@@ -40,6 +42,10 @@ test -x "$repository_root/tests/distribution.sh"
 
 test -f "$skill_file"
 test -f "$protocol_reference"
+
+published_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.1.0'
+grep -F -q -- "$published_skill_source" "$repository_root/README.md"
+grep -F -q -- "$published_skill_source" "$repository_root/tests/distribution.sh"
 
 test -z "$(find "$skill_directory" -type l -print -quit)"
 test -z "$(find "$skill_directory" -type f -perm -111 -print -quit)"
@@ -80,6 +86,10 @@ test ! -d "$skill_directory/hooks"
 test ! -d "$skill_directory/scripts"
 test ! -d "$skill_directory/assets"
 
+normalized_skill_text=$(
+  tr '\n' ' ' <"$skill_file" |
+    tr -s '[:space:]' ' '
+)
 for required_text in \
   'references/protocol-surface.md' \
   'FOLDERBASE.md' \
@@ -100,9 +110,12 @@ for required_text in \
   'nested Folderbase' \
   'symlink' \
   'secret' \
-  'never execute'
+  'never execute' \
+  'prompt-shaped' \
+  'secret-shaped path names' \
+  'source changed after planning'
 do
-  grep -F -i -q -- "$required_text" "$skill_file"
+  grep -F -i -q -- "$required_text" <<<"$normalized_skill_text"
 done
 
 for required_text in \

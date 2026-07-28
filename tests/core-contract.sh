@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+test_directory=$(
+  CDPATH= cd -- "$(dirname -- "$0")" >/dev/null 2>&1
+  pwd
+)
 temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
@@ -155,5 +159,229 @@ assert json.load(open(sys.argv[1]))["state"] == "verified"
 ' "$temporary_root/transform-apply.json"
 test -f "$transform_source/docs/proposal.md"
 test -f "$transform_source/Organized/docs/proposal.md"
+
+"$folderbase" transform recover \
+  "$transform_source" \
+  "$migration_id" \
+  --json >"$temporary_root/transform-recover.json"
+python3 -c '
+import json, sys
+result = json.load(open(sys.argv[1]))
+assert result["state"] == "verified"
+assert "Organized/docs/proposal.md" in result["created_paths"]
+' "$temporary_root/transform-recover.json"
+
+"$folderbase" transform rollback \
+  "$transform_source" \
+  "$migration_id" \
+  --json >"$temporary_root/transform-rollback.json"
+python3 -c '
+import json, sys
+result = json.load(open(sys.argv[1]))
+assert result["state"] == "rolled_back"
+assert "Organized/docs/proposal.md" in result["removed_paths"]
+' "$temporary_root/transform-rollback.json"
+test -f "$transform_source/docs/proposal.md"
+test ! -e "$transform_source/Organized"
+test -f "$transform_source/.folderbase/migrations/$migration_id/plan.json"
+test -f "$transform_source/.folderbase/migrations/$migration_id/result.json"
+
+adversarial_workspace="$temporary_root/adversarial-workspace"
+outside_workspace="$temporary_root/outside-workspace"
+mkdir -p "$adversarial_workspace" "$outside_workspace"
+secret_value=FOLDERBASE_SECRET_VALUE_SENTINEL
+printf '%s\n' "$secret_value" >"$adversarial_workspace/.env"
+cp \
+  "$test_directory/fixtures/adversarial/untrusted-document.md" \
+  "$adversarial_workspace/untrusted-document.md"
+printf '%s\n' "$secret_value" >"$outside_workspace/private.txt"
+ln -s \
+  "$outside_workspace/private.txt" \
+  "$adversarial_workspace/escape.txt"
+
+"$folderbase" inspect "$adversarial_workspace" --json \
+  >"$temporary_root/adversarial-inspect.json"
+"$folderbase" transform analyze "$adversarial_workspace" --json \
+  >"$temporary_root/adversarial-analysis.json"
+"$folderbase" init "$adversarial_workspace" --dry-run --json \
+  >"$temporary_root/adversarial-dry-run.json"
+
+python3 - \
+  "$temporary_root/adversarial-inspect.json" \
+  "$temporary_root/adversarial-analysis.json" <<'PY'
+import json
+import sys
+
+inspection = json.load(open(sys.argv[1], encoding="utf-8"))
+classified = {
+    entry["path"]: entry
+    for entry in inspection["classified_paths"]
+}
+assert inspection["inventory"]["secret_shaped_file_count"] == 1
+assert classified[".env"]["classification"] == "secret_shaped"
+assert classified[".env"]["reason"].endswith("contents were not read.")
+assert any(
+    warning == "Skipped symbolic link without following it: escape.txt"
+    for warning in inspection["warnings"]
+)
+
+analysis = json.load(open(sys.argv[2], encoding="utf-8"))
+secret_questions = [
+    question
+    for question in analysis["questions"]
+    if question["id"] == "question_secrets"
+]
+assert len(secret_questions) == 1
+assert secret_questions[0]["recommended_option_id"] == "local_only"
+PY
+
+for metadata_output in \
+  "$temporary_root/adversarial-inspect.json" \
+  "$temporary_root/adversarial-analysis.json" \
+  "$temporary_root/adversarial-dry-run.json"
+do
+  if grep -Fq "$secret_value" "$metadata_output"; then
+    printf 'Secret contents leaked into metadata output: %s\n' \
+      "$metadata_output" >&2
+    exit 1
+  fi
+  if grep -Fq 'FOLDERBASE_PROMPT_SENTINEL' "$metadata_output"; then
+    printf 'Document contents leaked into metadata output: %s\n' \
+      "$metadata_output" >&2
+    exit 1
+  fi
+done
+
+"$folderbase" init "$adversarial_workspace" --json \
+  >"$temporary_root/adversarial-init.json"
+"$folderbase" workspace list "$adversarial_workspace" --json \
+  >"$temporary_root/adversarial-list.json"
+python3 -c '
+import json, sys
+entries = json.load(open(sys.argv[1], encoding="utf-8"))["entries"]
+by_path = {entry["path"]: entry for entry in entries}
+assert by_path["escape.txt"]["kind"] == "symlink"
+assert by_path["escape.txt"]["editable"] is False
+' "$temporary_root/adversarial-list.json"
+
+if "$folderbase" workspace read \
+  "$adversarial_workspace" \
+  escape.txt \
+  --json \
+  >"$temporary_root/adversarial-symlink-read.json" \
+  2>"$temporary_root/adversarial-symlink-read.err"
+then
+  printf '%s\n' 'A symlink escape was incorrectly readable.' >&2
+  exit 1
+fi
+test ! -s "$temporary_root/adversarial-symlink-read.json"
+grep -Fq 'path escapes the folderbase root' \
+  "$temporary_root/adversarial-symlink-read.err"
+if grep -Fq "$secret_value" "$temporary_root/adversarial-symlink-read.err"; then
+  printf '%s\n' 'A symlink failure exposed target contents.' >&2
+  exit 1
+fi
+
+"$folderbase" workspace read \
+  "$adversarial_workspace" \
+  untrusted-document.md \
+  --json >"$temporary_root/adversarial-document-read.json"
+grep -Fq 'FOLDERBASE_PROMPT_SENTINEL' \
+  "$temporary_root/adversarial-document-read.json"
+test ! -e "$adversarial_workspace/FOLDERBASE_PROMPT_SENTINEL"
+test ! -e "$temporary_root/FOLDERBASE_PROMPT_SENTINEL"
+
+template_workspace="$temporary_root/template-workspace"
+mkdir -p "$template_workspace"
+template_sentinel="$temporary_root/FOLDERBASE_TEMPLATE_SENTINEL"
+template_prompt="\$(touch $template_sentinel)"
+template_recursive='${purpose} must remain literal'
+template_args=(
+  "$template_workspace"
+  --name "Adversarial Template"
+  --template folderbase.custom@0.2.0
+  --answer "purpose=$template_prompt"
+  --answer "current_state=$template_recursive"
+  --answer "next_action=Review as inert text"
+  --json
+)
+
+"$folderbase" init \
+  "${template_args[@]:0:1}" \
+  --dry-run \
+  "${template_args[@]:1}" \
+  >"$temporary_root/template-dry-run.json"
+test ! -e "$template_sentinel"
+grep -Fq "$template_prompt" "$temporary_root/template-dry-run.json"
+grep -Fq "$template_recursive" "$temporary_root/template-dry-run.json"
+
+"$folderbase" init "${template_args[@]}" \
+  >"$temporary_root/template-init.json"
+test ! -e "$template_sentinel"
+grep -Fq "$template_prompt" "$template_workspace/FOLDERBASE.md"
+grep -Fq "$template_recursive" "$template_workspace/FOLDERBASE.md"
+"$folderbase" validate "$template_workspace" --json \
+  >"$temporary_root/template-validate.json"
+python3 -c \
+  'import json,sys; assert json.load(open(sys.argv[1]))["valid"] is True' \
+  "$temporary_root/template-validate.json"
+
+drift_source="$temporary_root/drift-source"
+mkdir -p "$drift_source/docs"
+printf '%s\n' 'approved source' >"$drift_source/docs/proposal.md"
+"$folderbase" transform analyze "$drift_source" --json \
+  >"$temporary_root/drift-analysis.json"
+python3 -c '
+import json, sys
+analysis = json.load(open(sys.argv[1], encoding="utf-8"))
+answers = [
+    {
+        "question_id": question["id"],
+        "answer": question["recommended_option_id"],
+    }
+    for question in analysis["questions"]
+]
+json.dump(answers, open(sys.argv[2], "w", encoding="utf-8"))
+' \
+  "$temporary_root/drift-analysis.json" \
+  "$temporary_root/drift-answers.json"
+"$folderbase" transform plan \
+  "$drift_source" \
+  --destination Organized \
+  --answers-stdin \
+  --json \
+  <"$temporary_root/drift-answers.json" \
+  >"$temporary_root/drift-plan.json"
+drift_migration_id=$(
+  python3 -c \
+    'import json,sys; print(json.load(open(sys.argv[1]))["id"])' \
+    "$temporary_root/drift-plan.json"
+)
+"$folderbase" transform preview \
+  "$drift_source" \
+  "$drift_migration_id" \
+  --json >"$temporary_root/drift-preview.json"
+"$folderbase" transform approve \
+  "$drift_source" \
+  "$drift_migration_id" \
+  --json >"$temporary_root/drift-approval.json"
+printf '%s\n' 'changed after approval' >"$drift_source/docs/proposal.md"
+
+if "$folderbase" transform apply \
+  "$drift_source" \
+  "$drift_migration_id" \
+  --json \
+  >"$temporary_root/drift-apply.json" \
+  2>"$temporary_root/drift-apply.err"
+then
+  printf '%s\n' 'A drifted migration unexpectedly applied.' >&2
+  exit 1
+fi
+test ! -s "$temporary_root/drift-apply.json"
+grep -Fq '"code": "migration_source_changed"' \
+  "$temporary_root/drift-apply.err"
+test "$(sed -n '1p' "$drift_source/docs/proposal.md")" = \
+  'changed after approval'
+test ! -e "$drift_source/Organized"
 
 printf '%s\n' 'Folderbase skill and immutable Core contract are compatible.'

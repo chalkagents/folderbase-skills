@@ -1,0 +1,9 @@
+# selector	kind	mode	extra_question	extra_answer
+folderbase.person@0.2.0	person	apply	-	-
+folderbase.organization@0.2.0	organization	apply	-	-
+folderbase.customer@0.2.0	customer	apply	boundary_reason	This context has an independent retention boundary.
+folderbase.engagement@0.2.0	engagement	apply	-	-
+folderbase.project@0.2.1	project	preview-only	-	-
+folderbase.project@0.2.2	project	apply	-	-
+folderbase.temporary@0.2.0	temporary	apply	-	-
+folderbase.custom@0.2.0	custom	apply	-	-

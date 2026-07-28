@@ -5,6 +5,7 @@ test_directory=$(
   CDPATH= cd -- "$(dirname -- "$0")" >/dev/null 2>&1
   pwd
 )
+template_cases_fixture="$test_directory/fixtures/template-cases.tsv"
 temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
@@ -31,6 +32,255 @@ fi
 
 test -x "$folderbase"
 test "$("$folderbase" --version)" = 'folderbase 0.1.0'
+
+"$folderbase" --help >"$temporary_root/folderbase-help.txt"
+"$folderbase" init --help >"$temporary_root/init-help.txt"
+for command in inspect init validate transform version workspace
+do
+  grep -Fq "$command" "$temporary_root/folderbase-help.txt"
+done
+for init_surface in \
+  '--dry-run' \
+  '--name' \
+  '--kind' \
+  '--no-agent-adapters' \
+  '--template' \
+  '--answer' \
+  '--json'
+do
+  grep -Fq -- "$init_surface" "$temporary_root/init-help.txt"
+done
+grep -Fq \
+  'person, organization, engagement, project, customer, temporary, custom' \
+  "$temporary_root/init-help.txt"
+
+while IFS=$'\t' read -r \
+  template_selector \
+  template_kind \
+  template_mode \
+  extra_question \
+  extra_answer
+do
+  [[ "$template_selector" = \#* ]] && continue
+  test -n "$template_selector"
+  test -n "$template_kind"
+  test "$template_mode" = apply || test "$template_mode" = preview-only
+
+  manifest_kind=$template_kind
+  template_slug=${template_selector#folderbase.}
+  template_slug=${template_slug//@/-}
+  template_workspace="$temporary_root/template-$template_slug"
+  mkdir -p "$template_workspace"
+  printf 'existing %s bytes\n' "$template_kind" \
+    >"$template_workspace/existing-content.txt"
+
+  preserved_template_path=-
+  preserved_template_sha=-
+  if [[ "$template_selector" = 'folderbase.person@0.2.0' ]]; then
+    mkdir -p "$template_workspace/Areas"
+    printf 'original template target bytes\nline two\n' \
+      >"$template_workspace/Areas/original.txt"
+    preserved_template_path=Areas/original.txt
+    preserved_template_sha=$(
+      shasum -a 256 "$template_workspace/$preserved_template_path" |
+        awk '{ print $1 }'
+    )
+  fi
+
+  template_arguments=(
+    "$template_workspace"
+    --name "Starter $template_kind"
+    --kind "$manifest_kind"
+    --template "$template_selector"
+    --answer 'purpose=Make this folder understandable.'
+    --answer 'current_state=The template is being previewed.'
+    --answer 'next_action=Review the additive plan.'
+    --json
+  )
+  if [[ "$extra_question" != - ]]; then
+    template_arguments+=(
+      --answer "$extra_question=$extra_answer"
+    )
+  fi
+
+  "$folderbase" init \
+    "${template_arguments[@]:0:1}" \
+    --dry-run \
+    "${template_arguments[@]:1}" \
+    >"$temporary_root/template-$template_slug-dry-run.json"
+  test ! -e "$template_workspace/.folderbase"
+  test ! -e "$template_workspace/FOLDERBASE.md"
+  test "$(
+    cat "$template_workspace/existing-content.txt"
+  )" = "existing $template_kind bytes"
+
+  if [[ "$preserved_template_path" != - ]]; then
+    python3 - \
+      "$temporary_root/template-$template_slug-dry-run.json" \
+      "$preserved_template_path" <<'PY'
+import json
+import sys
+
+preview = json.load(open(sys.argv[1], encoding="utf-8"))
+assert sys.argv[2] in {
+    preserved["path"]
+    for preserved in preview["preserved_paths"]
+}
+assert {
+    (precondition["path"], precondition["kind"])
+    for precondition in preview["template_preconditions"]
+} >= {("Areas", "directory")}
+PY
+    test "$(
+      shasum -a 256 "$template_workspace/$preserved_template_path" |
+        awk '{ print $1 }'
+    )" = "$preserved_template_sha"
+  fi
+
+  if [[ "$template_mode" = preview-only ]]; then
+    continue
+  fi
+
+  "$folderbase" init "${template_arguments[@]}" \
+    >"$temporary_root/template-$template_slug-init.json"
+  "$folderbase" validate "$template_workspace" --json \
+    >"$temporary_root/template-$template_slug-validate.json"
+  python3 - \
+    "$template_workspace/.folderbase/manifest.json" \
+    "$temporary_root/template-$template_slug-validate.json" \
+    "$temporary_root/template-$template_slug-init.json" \
+    "$template_selector" \
+    "$manifest_kind" \
+    "$preserved_template_path" <<'PY'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+validation = json.load(open(sys.argv[2], encoding="utf-8"))
+result = json.load(open(sys.argv[3], encoding="utf-8"))
+template_id, template_version = sys.argv[4].split("@", 1)
+
+assert validation["valid"] is True
+assert manifest["folderbase"]["kind"] == sys.argv[5]
+assert manifest["folderbase"]["template_provenance"]["id"] == template_id
+assert manifest["folderbase"]["template_provenance"]["version"] == template_version
+assert {
+    (adapter["agent"], adapter["path"])
+    for adapter in manifest["adapters"]
+} == {
+    ("codex", "AGENTS.md"),
+    ("claude", "CLAUDE.md"),
+}
+assert {"AGENTS.md", "CLAUDE.md"} <= set(result["created_paths"])
+if sys.argv[6] != "-":
+    assert sys.argv[6] in result["preserved_paths"]
+PY
+  test "$(
+    cat "$template_workspace/existing-content.txt"
+  )" = "existing $template_kind bytes"
+  if [[ "$preserved_template_path" != - ]]; then
+    test "$(
+      shasum -a 256 "$template_workspace/$preserved_template_path" |
+        awk '{ print $1 }'
+    )" = "$preserved_template_sha"
+  fi
+done <"$template_cases_fixture"
+
+unsupported_custom_workspace="$temporary_root/unsupported-custom-template"
+mkdir -p "$unsupported_custom_workspace"
+printf '%s\n' 'must stay untouched' \
+  >"$unsupported_custom_workspace/existing-content.txt"
+if "$folderbase" init \
+  "$unsupported_custom_workspace" \
+  --template folderbase.custom@0.2.1 \
+  --answer 'purpose=Do not guess an unavailable custom template.' \
+  --answer 'current_state=The requested exact version is unavailable.' \
+  --answer 'next_action=Report the unsupported selector.' \
+  --json \
+  >"$temporary_root/unsupported-custom-template.json" \
+  2>"$temporary_root/unsupported-custom-template.err"
+then
+  printf '%s\n' 'An unavailable custom template version unexpectedly initialized.' >&2
+  exit 1
+fi
+test ! -e "$unsupported_custom_workspace/.folderbase"
+test ! -e "$unsupported_custom_workspace/FOLDERBASE.md"
+test "$(
+  cat "$unsupported_custom_workspace/existing-content.txt"
+)" = 'must stay untouched'
+
+no_adapter_workspace="$temporary_root/no-agent-adapters"
+mkdir -p "$no_adapter_workspace"
+printf '%s\n' 'existing Codex instructions stay byte-identical' \
+  >"$no_adapter_workspace/AGENTS.md"
+printf '%s\n' 'existing Claude instructions stay byte-identical' \
+  >"$no_adapter_workspace/CLAUDE.md"
+no_adapter_agents_sha=$(
+  shasum -a 256 "$no_adapter_workspace/AGENTS.md" |
+    awk '{ print $1 }'
+)
+no_adapter_claude_sha=$(
+  shasum -a 256 "$no_adapter_workspace/CLAUDE.md" |
+    awk '{ print $1 }'
+)
+no_adapter_arguments=(
+  "$no_adapter_workspace"
+  --name 'No agent adapters'
+  --kind custom
+  --template folderbase.custom@0.2.0
+  --answer 'purpose=Initialize without creating or changing agent adapters.'
+  --answer 'current_state=Existing adapter files belong to the user.'
+  --answer 'next_action=Preserve both adapter files.'
+  --no-agent-adapters
+  --json
+)
+"$folderbase" init \
+  "${no_adapter_arguments[@]:0:1}" \
+  --dry-run \
+  "${no_adapter_arguments[@]:1}" \
+  >"$temporary_root/no-agent-adapters-dry-run.json"
+"$folderbase" init "${no_adapter_arguments[@]}" \
+  >"$temporary_root/no-agent-adapters-init.json"
+"$folderbase" validate "$no_adapter_workspace" --json \
+  >"$temporary_root/no-agent-adapters-validate.json"
+python3 - \
+  "$temporary_root/no-agent-adapters-dry-run.json" \
+  "$temporary_root/no-agent-adapters-init.json" \
+  "$no_adapter_workspace/.folderbase/manifest.json" \
+  "$temporary_root/no-agent-adapters-validate.json" <<'PY'
+import json
+import sys
+
+preview = json.load(open(sys.argv[1], encoding="utf-8"))
+result = json.load(open(sys.argv[2], encoding="utf-8"))
+manifest = json.load(open(sys.argv[3], encoding="utf-8"))
+validation = json.load(open(sys.argv[4], encoding="utf-8"))
+adapter_paths = {"AGENTS.md", "CLAUDE.md"}
+
+assert adapter_paths <= {
+    preserved["path"]
+    for preserved in preview["preserved_paths"]
+}
+assert not adapter_paths & {
+    write["path"]
+    for write in preview["writes"]
+}
+assert preview["warnings"] == [
+    "Agent adapters were disabled for this initialization."
+]
+assert adapter_paths <= set(result["preserved_paths"])
+assert not adapter_paths & set(result["created_paths"])
+assert manifest["adapters"] == []
+assert validation["valid"] is True
+PY
+test "$(
+  shasum -a 256 "$no_adapter_workspace/AGENTS.md" |
+    awk '{ print $1 }'
+)" = "$no_adapter_agents_sha"
+test "$(
+  shasum -a 256 "$no_adapter_workspace/CLAUDE.md" |
+    awk '{ print $1 }'
+)" = "$no_adapter_claude_sha"
 
 workspace="$temporary_root/workspace"
 mkdir -p "$workspace/nested"
@@ -293,9 +543,14 @@ test ! -e "$temporary_root/FOLDERBASE_PROMPT_SENTINEL"
 
 template_workspace="$temporary_root/template-workspace"
 mkdir -p "$template_workspace"
-template_sentinel="$temporary_root/FOLDERBASE_TEMPLATE_SENTINEL"
-template_prompt="\$(touch $template_sentinel)"
-template_recursive='${purpose} must remain literal'
+template_file_sentinel="$temporary_root/FOLDERBASE_TEMPLATE_FILE_SENTINEL"
+template_process_sentinel="$temporary_root/FOLDERBASE_TEMPLATE_PROCESS_SENTINEL"
+printf -v template_prompt '%s\n%s\n%s\n%s' \
+  'Quotes: "double" and '\''single'\''; equals=a=b=c' \
+  "Command shaped text: sh -c 'touch $template_process_sentinel'" \
+  "Literal \$() text: \$(touch $template_file_sentinel)" \
+  'Final line remains inert.'
+template_recursive=$'First line\n${purpose} must remain literal\nLast line: x=y=z'
 template_args=(
   "$template_workspace"
   --name "Adversarial Template"
@@ -311,15 +566,45 @@ template_args=(
   --dry-run \
   "${template_args[@]:1}" \
   >"$temporary_root/template-dry-run.json"
-test ! -e "$template_sentinel"
-grep -Fq "$template_prompt" "$temporary_root/template-dry-run.json"
-grep -Fq "$template_recursive" "$temporary_root/template-dry-run.json"
+test ! -e "$template_file_sentinel"
+test ! -e "$template_process_sentinel"
+python3 - \
+  "$temporary_root/template-dry-run.json" \
+  "$template_prompt" \
+  "$template_recursive" <<'PY'
+import json
+import sys
+
+preview = json.load(open(sys.argv[1], encoding="utf-8"))
+entry = next(
+    write["content"]
+    for write in preview["writes"]
+    if write["path"] == "FOLDERBASE.md"
+)
+expected = (
+    f"## Purpose\n{sys.argv[2]}\n\n"
+    f"## Current state\n{sys.argv[3]}\n\n"
+)
+assert expected.encode("utf-8") in entry.encode("utf-8")
+PY
 
 "$folderbase" init "${template_args[@]}" \
   >"$temporary_root/template-init.json"
-test ! -e "$template_sentinel"
-grep -Fq "$template_prompt" "$template_workspace/FOLDERBASE.md"
-grep -Fq "$template_recursive" "$template_workspace/FOLDERBASE.md"
+test ! -e "$template_file_sentinel"
+test ! -e "$template_process_sentinel"
+python3 - \
+  "$template_workspace/FOLDERBASE.md" \
+  "$template_prompt" \
+  "$template_recursive" <<'PY'
+import sys
+
+actual = open(sys.argv[1], "rb").read()
+expected = (
+    f"## Purpose\n{sys.argv[2]}\n\n"
+    f"## Current state\n{sys.argv[3]}\n\n"
+).encode("utf-8")
+assert expected in actual
+PY
 "$folderbase" validate "$template_workspace" --json \
   >"$temporary_root/template-validate.json"
 python3 -c \

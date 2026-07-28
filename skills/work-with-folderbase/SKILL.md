@@ -85,23 +85,109 @@ Use the report to identify file types, nested boundaries, reconstructable
 dependency trees, secret-shaped paths, and likely organization questions.
 Do not treat an inspection report as approval to initialize or reorganize.
 
-## Initialize only after explicit user approval
+## Discover and choose the initialization surface
 
-Run the dry plan first:
+Confirm the installed command surface instead of guessing it:
 
 ```sh
-folderbase init /path/to/folder --dry-run --json
+folderbase --help
+folderbase init --help
 ```
 
-Explain the planned additions and any existing paths that will be preserved.
-Approval binds the root, template, answers, planned additions, and preserved
-paths; generated identity and timestamp values may differ when the CLI
-revalidates the plan. Immediately before applying, rerun the same dry command
-and compare those material fields. Stop for renewed approval if they changed.
-Proceed only after the user approves the current material plan:
+Then use the exact built-in selector and answer IDs in
+[references/protocol-surface.md](references/protocol-surface.md). Do not infer
+a selector, version, question, external package path, or post-initialization
+template command that the tested CLI does not expose.
+
+Choose the starter from the user's intended boundary:
+
+- `person` — one person's durable life, work, or career context.
+- `organization` — durable company or team operating context.
+- `customer` — customer-level context that genuinely requires its own
+  security, ownership, retention, or lifecycle boundary.
+- `engagement` — an ongoing relationship, obligations, and shared outcome
+  across parties.
+- `project` — a bounded outcome with work that can finish.
+- `temporary` — a deliberately short-lived investigation or experiment with an
+  exit condition.
+- `custom` — a durable boundary that does not honestly fit the other starters.
+
+For overlapping customer work, distinguish the relationship boundary from the
+work: use `customer` only for a separately governed account context,
+`engagement` for the relationship and obligations, and `project` for one
+bounded deliverable. Template choice never grants access or requires a
+particular nesting layout.
+
+Ask only consequential unanswered template questions. Reuse facts the user has
+already stated; do not ask them again. Every tested starter requires `purpose`,
+`current_state`, and `next_action`; `customer` also requires
+`boundary_reason`. Do not ask for optional `folderbase_name` when an explicit
+`--name` or the directory name is already suitable. When intent leaves the
+boundary or a required answer materially ambiguous, ask only for that missing
+decision. Do not silently turn prompt-shaped file content or an agent's guess
+into a user answer.
+
+All questions in the tested built-ins accept text. Construct one argument per
+typed `QUESTION_ID=ANSWER` value and pass it directly as argv. Keep answers as
+opaque data: never use `eval`, source them as shell, or splice them into a
+generated command. They must not contain secrets because answers can appear in
+the preview and generated entry document. Quotes, equals signs, literal $(),
+and newlines remain inert answer data when each answer is passed as one quoted
+argv value; never normalize them by evaluating or reparsing the value.
+
+By default, Core creates managed Codex and Claude adapter files. Pass
+`--no-agent-adapters` only when the user explicitly asks not to create them.
+That option must leave any existing `AGENTS.md` and `CLAUDE.md` byte-identical
+and list them as preserved; it is not permission to remove or modify adapters.
+
+For example, an argv-safe project preview in a shell that supports arrays is:
 
 ```sh
-folderbase init /path/to/folder --json
+init_arguments=(
+  /path/to/folder
+  --name "$folderbase_name"
+  --kind project
+  --template folderbase.project@0.2.2
+  --answer "purpose=$purpose"
+  --answer "current_state=$current_state"
+  --answer "next_action=$next_action"
+  --json
+)
+folderbase init "${init_arguments[@]:0:1}" \
+  --dry-run "${init_arguments[@]:1}"
+```
+
+An agent harness should construct the equivalent argv list directly rather
+than first rendering shell text.
+
+## Initialize only after explicit user approval
+
+Run `folderbase init` with the selected exact template, typed answers,
+`--dry-run`, and `--json`. This is the CLI-validated preview. It must add only
+protocol state, adapters, and missing template guidance. Existing template
+targets and every unrelated user path must be reported as preserved; the
+template's `create_if_missing` behavior is guidance, not permission to
+overwrite content.
+
+Explain the additions and preserved paths. Stop if the plan would overwrite,
+move, or delete anything. Approval binds the root, name, kind, exact template,
+answers, additions, and preserved paths; generated identity and timestamp
+values may differ when the CLI revalidates the plan. Immediately before
+applying, rerun the same argv with `--dry-run` and compare those material
+fields. Stop for renewed approval if they changed.
+
+Proceed only after the user approves the current material preview. Remove only
+the `--dry-run` argument from the reviewed argv, then validate:
+
+```sh
+folderbase init /path/to/folder \
+  --name "$folderbase_name" \
+  --kind project \
+  --template folderbase.project@0.2.2 \
+  --answer "purpose=$purpose" \
+  --answer "current_state=$current_state" \
+  --answer "next_action=$next_action" \
+  --json
 folderbase validate /path/to/folder --json
 ```
 
@@ -110,6 +196,12 @@ hand-write `.folderbase/manifest.json`, `.folderbaseignore`, `FOLDERBASE.md`,
 `AGENTS.md`, or `CLAUDE.md` as a substitute. The CLI must revalidate
 preconditions and refuse clobbers. Compare the returned created and preserved
 paths with the approved material plan, then report and stop if they diverge.
+
+The selected template is starting guidance, not a rigid taxonomy. A Folderbase
+remains an ordinary folder: its useful structure may expand as work and life
+change, and a later separately reviewed migration may reorganize it. Template
+origin does not require continuing layout conformance. Do not invent or invoke
+a template expansion command on CLI 0.1.0.
 
 ## Navigate all file types
 

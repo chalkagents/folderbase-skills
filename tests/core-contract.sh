@@ -5,11 +5,29 @@ test_directory=$(
   CDPATH= cd -- "$(dirname -- "$0")" >/dev/null 2>&1
   pwd
 )
+repository_root=$(
+  CDPATH= cd -- "$test_directory/.." >/dev/null 2>&1
+  pwd
+)
+protocol_reference="$repository_root/skills/work-with-folderbase/references/protocol-surface.md"
 temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
 core_repository=https://github.com/chalkagents/folderbase.git
 core_ref=${FOLDERBASE_CORE_REF:-2daf6968387e8c8111dfa03a922ed8866c015e15}
+
+for template_selector in \
+  'folderbase.person@0.2.0' \
+  'folderbase.organization@0.2.0' \
+  'folderbase.customer@0.2.0' \
+  'folderbase.engagement@0.2.0' \
+  'folderbase.project@0.2.1' \
+  'folderbase.project@0.2.2' \
+  'folderbase.temporary@0.2.0' \
+  'folderbase.custom@0.2.0'
+do
+  grep -Fq -- "$template_selector" "$protocol_reference"
+done
 
 if [[ -n "${FOLDERBASE_CLI_BIN:-}" ]]; then
   folderbase=$FOLDERBASE_CLI_BIN
@@ -31,6 +49,142 @@ fi
 
 test -x "$folderbase"
 test "$("$folderbase" --version)" = 'folderbase 0.1.0'
+
+"$folderbase" --help >"$temporary_root/folderbase-help.txt"
+"$folderbase" init --help >"$temporary_root/init-help.txt"
+for command in inspect init validate transform version workspace
+do
+  grep -Fq "$command" "$temporary_root/folderbase-help.txt"
+done
+for init_surface in \
+  '--dry-run' \
+  '--name' \
+  '--kind' \
+  '--template' \
+  '--answer' \
+  '--json'
+do
+  grep -Fq -- "$init_surface" "$temporary_root/init-help.txt"
+done
+grep -Fq \
+  'person, organization, engagement, project, customer, temporary, custom' \
+  "$temporary_root/init-help.txt"
+
+template_cases=(
+  'folderbase.person@0.2.0|person||'
+  'folderbase.organization@0.2.0|organization||'
+  'folderbase.customer@0.2.0|customer|boundary_reason|This context has an independent retention boundary.'
+  'folderbase.engagement@0.2.0|engagement||'
+  'folderbase.project@0.2.2|project||'
+  'folderbase.temporary@0.2.0|temporary||'
+  'folderbase.custom@0.2.0|custom||'
+)
+
+for template_case in "${template_cases[@]}"
+do
+  IFS='|' read -r template_selector template_kind extra_question extra_answer \
+    <<<"$template_case"
+  manifest_kind=$template_kind
+  template_workspace="$temporary_root/template-$template_kind"
+  mkdir -p "$template_workspace"
+  printf 'existing %s bytes\n' "$template_kind" \
+    >"$template_workspace/existing-content.txt"
+
+  template_arguments=(
+    "$template_workspace"
+    --name "Starter $template_kind"
+    --kind "$manifest_kind"
+    --template "$template_selector"
+    --answer 'purpose=Make this folder understandable.'
+    --answer 'current_state=The template is being previewed.'
+    --answer 'next_action=Review the additive plan.'
+    --json
+  )
+  if [[ -n "$extra_question" ]]; then
+    template_arguments+=(
+      --answer "$extra_question=$extra_answer"
+    )
+  fi
+
+  "$folderbase" init \
+    "${template_arguments[@]:0:1}" \
+    --dry-run \
+    "${template_arguments[@]:1}" \
+    >"$temporary_root/template-$template_kind-dry-run.json"
+  test ! -e "$template_workspace/.folderbase"
+  test ! -e "$template_workspace/FOLDERBASE.md"
+  test "$(
+    cat "$template_workspace/existing-content.txt"
+  )" = "existing $template_kind bytes"
+
+  "$folderbase" init "${template_arguments[@]}" \
+    >"$temporary_root/template-$template_kind-init.json"
+  "$folderbase" validate "$template_workspace" --json \
+    >"$temporary_root/template-$template_kind-validate.json"
+  python3 - \
+    "$template_workspace/.folderbase/manifest.json" \
+    "$temporary_root/template-$template_kind-validate.json" \
+    "$template_selector" \
+    "$manifest_kind" <<'PY'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+validation = json.load(open(sys.argv[2], encoding="utf-8"))
+template_id, template_version = sys.argv[3].split("@", 1)
+
+assert validation["valid"] is True
+assert manifest["folderbase"]["kind"] == sys.argv[4]
+assert manifest["folderbase"]["template_provenance"]["id"] == template_id
+assert manifest["folderbase"]["template_provenance"]["version"] == template_version
+PY
+  test "$(
+    cat "$template_workspace/existing-content.txt"
+  )" = "existing $template_kind bytes"
+done
+
+superseded_project_workspace="$temporary_root/template-project-superseded"
+mkdir -p "$superseded_project_workspace"
+printf '%s\n' 'superseded preview must stay read-only' \
+  >"$superseded_project_workspace/existing-content.txt"
+"$folderbase" init \
+  "$superseded_project_workspace" \
+  --kind project \
+  --template folderbase.project@0.2.1 \
+  --answer 'purpose=Identify the superseded built-in without applying it.' \
+  --answer 'current_state=The newer validated starter is available.' \
+  --answer 'next_action=Use exact project template version 0.2.2.' \
+  --dry-run \
+  --json \
+  >"$temporary_root/template-project-superseded-dry-run.json"
+test ! -e "$superseded_project_workspace/.folderbase"
+test ! -e "$superseded_project_workspace/FOLDERBASE.md"
+test "$(
+  cat "$superseded_project_workspace/existing-content.txt"
+)" = 'superseded preview must stay read-only'
+
+unsupported_custom_workspace="$temporary_root/unsupported-custom-template"
+mkdir -p "$unsupported_custom_workspace"
+printf '%s\n' 'must stay untouched' \
+  >"$unsupported_custom_workspace/existing-content.txt"
+if "$folderbase" init \
+  "$unsupported_custom_workspace" \
+  --template folderbase.custom@0.2.1 \
+  --answer 'purpose=Do not guess an unavailable custom template.' \
+  --answer 'current_state=The requested exact version is unavailable.' \
+  --answer 'next_action=Report the unsupported selector.' \
+  --json \
+  >"$temporary_root/unsupported-custom-template.json" \
+  2>"$temporary_root/unsupported-custom-template.err"
+then
+  printf '%s\n' 'An unavailable custom template version unexpectedly initialized.' >&2
+  exit 1
+fi
+test ! -e "$unsupported_custom_workspace/.folderbase"
+test ! -e "$unsupported_custom_workspace/FOLDERBASE.md"
+test "$(
+  cat "$unsupported_custom_workspace/existing-content.txt"
+)" = 'must stay untouched'
 
 workspace="$temporary_root/workspace"
 mkdir -p "$workspace/nested"

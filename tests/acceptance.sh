@@ -20,6 +20,7 @@ for root_file in \
   NOTICE \
   SECURITY.md \
   docs/test-evidence/skills-v01-hardening-red.md \
+  docs/test-evidence/template-aware-initialization-red.md \
   .gitignore \
   package.json \
   package-lock.json \
@@ -94,6 +95,7 @@ for required_text in \
   'references/protocol-surface.md' \
   'FOLDERBASE.md' \
   '.folderbase/manifest.json' \
+  'folderbase init --help' \
   'folderbase inspect' \
   'folderbase init' \
   'folderbase --version' \
@@ -113,6 +115,8 @@ for required_text in \
   'never execute' \
   'prompt-shaped' \
   'secret-shaped path names' \
+  'consequential unanswered' \
+  'guidance, not a rigid taxonomy' \
   'source changed after planning'
 do
   grep -F -i -q -- "$required_text" <<<"$normalized_skill_text"
@@ -124,7 +128,15 @@ for required_text in \
   'v0.1.0' \
   'Protocol 0.1' \
   'Template Protocol 0.2' \
-  '0.1.0'
+  '0.1.0' \
+  'folderbase.person@0.2.0' \
+  'folderbase.organization@0.2.0' \
+  'folderbase.customer@0.2.0' \
+  'folderbase.engagement@0.2.0' \
+  'folderbase.project@0.2.1' \
+  'folderbase.project@0.2.2' \
+  'folderbase.temporary@0.2.0' \
+  'folderbase.custom@0.2.0'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
 done

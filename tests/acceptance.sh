@@ -41,6 +41,9 @@ test -x "$repository_root/tests/distribution.sh"
 test -f "$skill_file"
 test -f "$protocol_reference"
 
+test -z "$(find "$skill_directory" -type l -print -quit)"
+test -z "$(find "$skill_directory" -type f -perm -111 -print -quit)"
+
 skill_count=$(
   find "$repository_root/skills" -mindepth 2 -maxdepth 2 -name SKILL.md -type f |
     wc -l |
@@ -65,7 +68,7 @@ frontmatter_keys=$(
 test "$frontmatter_keys" = $'description\nname'
 printf '%s\n' "$frontmatter" | grep -Fxq 'name: work-with-folderbase'
 
-if rg -n 'TODO|TBD|FIXME' "$skill_directory"; then
+if grep -R -n -E 'TODO|TBD|FIXME' "$skill_directory"; then
   printf '%s\n' 'Skill contains unfinished placeholders.' >&2
   exit 1
 fi
@@ -73,8 +76,6 @@ fi
 line_count=$(wc -l <"$skill_file" | tr -d ' ')
 test "$line_count" -lt 500
 
-test -z "$(find "$skill_directory" -type l -print -quit)"
-test -z "$(find "$skill_directory" -type f -perm -111 -print -quit)"
 test ! -d "$skill_directory/hooks"
 test ! -d "$skill_directory/scripts"
 test ! -d "$skill_directory/assets"
@@ -101,7 +102,7 @@ for required_text in \
   'secret' \
   'never execute'
 do
-  rg -Fiq -- "$required_text" "$skill_file"
+  grep -F -i -q -- "$required_text" "$skill_file"
 done
 
 for required_text in \
@@ -112,14 +113,36 @@ for required_text in \
   'Template Protocol 0.2' \
   '0.1.0'
 do
-  rg -Fq -- "$required_text" "$protocol_reference"
+  grep -F -q -- "$required_text" "$protocol_reference"
 done
 
-if rg -n \
-  '/(Users|home)/[^/]+/|BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9_]{20,}' \
-  "$repository_root" \
-  --glob '!.git/**'
-then
+private_pattern='/(Users|home)/[^/]+/|BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9_]{20,}'
+private_hits=''
+while IFS= read -r -d '' repository_file
+do
+  absolute_repository_file="$repository_root/$repository_file"
+  if [[ -L "$absolute_repository_file" ]]; then
+    printf 'Public repository contains a symlink: %s\n' "$repository_file" >&2
+    exit 1
+  fi
+  if file_hits=$(grep -n -E "$private_pattern" -- "$absolute_repository_file"); then
+    private_hits+="${private_hits:+$'\n'}$repository_file:$file_hits"
+  else
+    grep_status=$?
+    if [[ $grep_status -ne 1 ]]; then
+      printf 'Unable to scan public file: %s\n' "$repository_file" >&2
+      exit 1
+    fi
+  fi
+done < <(
+  git -C "$repository_root" ls-files \
+    --cached \
+    --others \
+    --exclude-standard \
+    -z
+)
+if [[ -n "$private_hits" ]]; then
+  printf '%s\n' "$private_hits" >&2
   printf '%s\n' 'Public skill repository contains private implementation context.' >&2
   exit 1
 fi

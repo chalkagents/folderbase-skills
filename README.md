@@ -11,12 +11,12 @@ authority.
 
 ## Install
 
-The pinned Skills CLI requires Node.js 22.20 or newer. List the available
-skills without installing:
+The pinned Skills CLI requires Node.js 22.20 or newer. The current published
+Skills release is `v0.2.0`. List its available skills without installing:
 
 ```sh
 DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
-  https://github.com/chalkagents/folderbase-skills/tree/v0.2.1 \
+  https://github.com/chalkagents/folderbase-skills/tree/v0.2.0 \
   --list
 ```
 
@@ -24,32 +24,38 @@ Install the skill into the current project for the detected agent:
 
 ```sh
 DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
-  https://github.com/chalkagents/folderbase-skills/tree/v0.2.1 \
+  https://github.com/chalkagents/folderbase-skills/tree/v0.2.0 \
   --skill work-with-folderbase \
   --copy \
   --yes
 ```
 
-Add `--global` for a user-level installation. The release is install-tested for
-Codex, Claude Code, Cursor, Hermes Agent, and OpenClaw; the same portable skill
-can work in other Agent Skills-compatible harnesses. The tag in the source URL
-is intentional: review and install an immutable Folderbase Skills release
-rather than whatever happens to be on the repository's moving default branch.
+Add `--global` for a user-level installation. The `v0.2.0` release is
+install-tested for Codex, Claude Code, Cursor, Hermes Agent, and OpenClaw; the
+same portable skill can work in other Agent Skills-compatible harnesses. The
+tag in the source URL is intentional: review and install a version-pinned
+Folderbase Skills release rather than whatever happens to be on the
+repository's moving default branch.
 
-Install the matching Folderbase CLI before asking an agent to mutate a
+Install its matching Folderbase CLI before asking an agent to mutate a
 Folderbase:
 
 ```sh
 cargo install \
   --git https://github.com/chalkagents/folderbase.git \
-  --rev 3a3e9df836a1fe0a2f33946205f899cc9483dc1b \
+  --rev f5ae84c5c247274a23cef901367fb83533a64f4d \
   --locked \
   folderbase-cli
 ```
 
 Without a supported official CLI, the skill stays read-only.
 
-## Contract
+## Development contract
+
+The current default branch is validated for the next Skills release against
+Folderbase Core and CLI `0.2.1` at
+`3a3e9df836a1fe0a2f33946205f899cc9483dc1b`. Install the published pairing
+above unless you are explicitly testing this development contract.
 
 - One portable skill: `work-with-folderbase`
 - Folderbase Core and CLI: `0.2.1`

@@ -13,26 +13,34 @@ repository_root=$(
 cd "$repository_root"
 
 forbidden_pattern='brain|legacy|predecessor|/(Users|home)/[^/]+/'
-content_hits=$(
-  rg \
-    --hidden \
-    --text \
-    --ignore-case \
-    --line-number \
-    --glob '!.git/**' \
-    --glob '!scripts/check-public-eclipse.sh' \
-    --glob '!node_modules/**' \
-    "$forbidden_pattern" \
-    . ||
-    true
-)
-path_hits=$(
+content_hits=''
+path_hits=''
+while IFS= read -r -d '' public_file
+do
+  if [[ -L "$public_file" ]]; then
+    printf 'Public repository contains a symlink: %s\n' "$public_file" >&2
+    exit 1
+  fi
+  if [[ "$public_file" != 'scripts/check-public-eclipse.sh' ]]; then
+    if file_hits=$(grep -n -E -i "$forbidden_pattern" -- "$public_file"); then
+      content_hits+="${content_hits:+$'\n'}$public_file:$file_hits"
+    else
+      grep_status=$?
+      if [[ $grep_status -ne 1 ]]; then
+        printf 'Unable to scan public file: %s\n' "$public_file" >&2
+        exit 1
+      fi
+    fi
+  fi
+  if grep -E -i -q 'brain|legacy|predecessor' <<<"$public_file"; then
+    path_hits+="${path_hits:+$'\n'}$public_file"
+  fi
+done < <(
   git ls-files \
     --cached \
     --others \
-    --exclude-standard |
-    grep -Ei 'brain|legacy|predecessor' ||
-    true
+    --exclude-standard \
+    -z
 )
 
 if [[ -n "$content_hits" || -n "$path_hits" ]]; then

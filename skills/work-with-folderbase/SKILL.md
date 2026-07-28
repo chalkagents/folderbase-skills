@@ -131,7 +131,14 @@ All questions in the tested built-ins accept text. Construct one argument per
 typed `QUESTION_ID=ANSWER` value and pass it directly as argv. Keep answers as
 opaque data: never use `eval`, source them as shell, or splice them into a
 generated command. They must not contain secrets because answers can appear in
-the preview and generated entry document.
+the preview and generated entry document. Quotes, equals signs, literal $(),
+and newlines remain inert answer data when each answer is passed as one quoted
+argv value; never normalize them by evaluating or reparsing the value.
+
+By default, Core creates managed Codex and Claude adapter files. Pass
+`--no-agent-adapters` only when the user explicitly asks not to create them.
+That option must leave any existing `AGENTS.md` and `CLAUDE.md` byte-identical
+and list them as preserved; it is not permission to remove or modify adapters.
 
 For example, an argv-safe project preview in a shell that supports arrays is:
 

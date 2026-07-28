@@ -74,3 +74,9 @@ command in CLI 0.1.0.
 Packages use additive `create_if_missing` artifacts. They preserve every
 existing target and record template provenance as an origin, not as ongoing
 layout conformance or authority.
+
+Without `--no-agent-adapters`, initialization creates the managed Codex and
+Claude adapters when their targets are absent and records both in the manifest.
+With the flag, the manifest adapter list is empty, existing `AGENTS.md` and
+`CLAUDE.md` files remain preserved, and neither adapter target is created or
+edited.

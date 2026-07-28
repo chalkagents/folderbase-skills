@@ -13,6 +13,8 @@ repository_root=$(
 skill_directory="$repository_root/skills/work-with-folderbase"
 skill_file="$skill_directory/SKILL.md"
 protocol_reference="$skill_directory/references/protocol-surface.md"
+template_cases_fixture="$repository_root/tests/fixtures/template-cases.tsv"
+template_red_evidence="$repository_root/docs/test-evidence/template-aware-initialization-red.md"
 
 for root_file in \
   README.md \
@@ -30,7 +32,8 @@ for root_file in \
   tests/acceptance.sh \
   tests/core-contract.sh \
   tests/distribution.sh \
-  tests/fixtures/adversarial/untrusted-document.md
+  tests/fixtures/adversarial/untrusted-document.md \
+  tests/fixtures/template-cases.tsv
 do
   test -f "$repository_root/$root_file"
 done
@@ -116,10 +119,24 @@ for required_text in \
   'prompt-shaped' \
   'secret-shaped path names' \
   'consequential unanswered' \
+  '--no-agent-adapters' \
+  'quotes, equals signs, literal $(), and newlines' \
   'guidance, not a rigid taxonomy' \
   'source changed after planning'
 do
   grep -F -i -q -- "$required_text" <<<"$normalized_skill_text"
+done
+
+for template_kind in \
+  person \
+  organization \
+  customer \
+  engagement \
+  project \
+  temporary \
+  custom
+do
+  grep -F -q -- "\`$template_kind\`" "$skill_file"
 done
 
 for required_text in \
@@ -128,18 +145,28 @@ for required_text in \
   'v0.1.0' \
   'Protocol 0.1' \
   'Template Protocol 0.2' \
-  '0.1.0' \
-  'folderbase.person@0.2.0' \
-  'folderbase.organization@0.2.0' \
-  'folderbase.customer@0.2.0' \
-  'folderbase.engagement@0.2.0' \
-  'folderbase.project@0.2.1' \
-  'folderbase.project@0.2.2' \
-  'folderbase.temporary@0.2.0' \
-  'folderbase.custom@0.2.0'
+  '0.1.0'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
 done
+
+while IFS=$'\t' read -r template_selector _template_kind _mode \
+  _extra_question _extra_answer
+do
+  [[ "$template_selector" = \#* ]] && continue
+  test -n "$template_selector"
+  grep -F -q -- "$template_selector" "$protocol_reference"
+done <"$template_cases_fixture"
+
+test "$(
+  grep -F -c -- 'worktree add --detach' "$template_red_evidence"
+)" -ge 2
+test "$(
+  grep -F -c -- 'git apply' "$template_red_evidence"
+)" -ge 2
+grep -F -q -- 'ACCEPTANCE_RED_EXIT=1' "$template_red_evidence"
+grep -F -q -- 'CORE_CONTRACT_RED_EXIT=1' "$template_red_evidence"
+grep -F -q -- 'worktree remove --force' "$template_red_evidence"
 
 private_pattern='/(Users|home)/[^/]+/|BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9_]{20,}'
 private_hits=''

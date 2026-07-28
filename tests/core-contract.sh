@@ -10,7 +10,76 @@ temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
 core_repository=https://github.com/chalkagents/folderbase.git
-core_ref=${FOLDERBASE_CORE_REF:-2daf6968387e8c8111dfa03a922ed8866c015e15}
+core_ref=${FOLDERBASE_CORE_REF:-f5ae84c5c247274a23cef901367fb83533a64f4d}
+
+read_plan_digest() {
+  python3 - "$1" <<'PY'
+import json
+import re
+import sys
+
+plan = json.load(open(sys.argv[1], encoding="utf-8"))
+identity = plan["plan_digest"]
+assert identity["algorithm"] == "sha256"
+assert re.fullmatch(r"[0-9a-f]{64}", identity["digest"])
+print(identity["digest"])
+PY
+}
+
+assert_json_error_code() {
+  local error_file=$1
+  local expected_code=$2
+
+  python3 - "$error_file" "$expected_code" <<'PY'
+import json
+import sys
+
+envelope = json.load(open(sys.argv[1], encoding="utf-8"))
+assert envelope["error"]["code"] == sys.argv[2], envelope
+assert isinstance(envelope["error"]["message"], str)
+assert envelope["error"]["message"]
+PY
+}
+
+snapshot_workspace() {
+  local workspace_root=$1
+  local snapshot_file=$2
+
+  python3 - "$workspace_root" "$snapshot_file" <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import sys
+
+root = Path(sys.argv[1])
+entries = []
+for path in sorted(root.rglob("*")):
+    relative = path.relative_to(root).as_posix()
+    metadata = os.lstat(path)
+    record = {
+        "path": relative,
+        "mode": stat.S_IMODE(metadata.st_mode),
+    }
+    if stat.S_ISLNK(metadata.st_mode):
+        record.update(kind="symlink", target=os.readlink(path))
+    elif stat.S_ISDIR(metadata.st_mode):
+        record.update(kind="directory")
+    elif stat.S_ISREG(metadata.st_mode):
+        record.update(
+            kind="file",
+            bytes=metadata.st_size,
+            sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        )
+    else:
+        record.update(kind="other")
+    entries.append(record)
+
+with open(sys.argv[2], "w", encoding="utf-8") as output:
+    json.dump(entries, output, sort_keys=True, separators=(",", ":"))
+PY
+}
 
 if [[ -n "${FOLDERBASE_CLI_BIN:-}" ]]; then
   folderbase=$FOLDERBASE_CLI_BIN
@@ -31,7 +100,7 @@ else
 fi
 
 test -x "$folderbase"
-test "$("$folderbase" --version)" = 'folderbase 0.1.0'
+test "$("$folderbase" --version)" = 'folderbase 0.2.0'
 
 "$folderbase" --help >"$temporary_root/folderbase-help.txt"
 "$folderbase" init --help >"$temporary_root/init-help.txt"
@@ -46,6 +115,7 @@ for init_surface in \
   '--no-agent-adapters' \
   '--template' \
   '--answer' \
+  '--expected-plan-digest' \
   '--json'
 do
   grep -Fq -- "$init_surface" "$temporary_root/init-help.txt"
@@ -108,6 +178,9 @@ do
     --dry-run \
     "${template_arguments[@]:1}" \
     >"$temporary_root/template-$template_slug-dry-run.json"
+  approved_plan_digest=$(
+    read_plan_digest "$temporary_root/template-$template_slug-dry-run.json"
+  )
   test ! -e "$template_workspace/.folderbase"
   test ! -e "$template_workspace/FOLDERBASE.md"
   test "$(
@@ -141,7 +214,10 @@ PY
     continue
   fi
 
-  "$folderbase" init "${template_arguments[@]}" \
+  "$folderbase" init \
+    "${template_arguments[@]:0:1}" \
+    --expected-plan-digest "$approved_plan_digest" \
+    "${template_arguments[@]:1}" \
     >"$temporary_root/template-$template_slug-init.json"
   "$folderbase" validate "$template_workspace" --json \
     >"$temporary_root/template-$template_slug-validate.json"
@@ -151,7 +227,8 @@ PY
     "$temporary_root/template-$template_slug-init.json" \
     "$template_selector" \
     "$manifest_kind" \
-    "$preserved_template_path" <<'PY'
+    "$preserved_template_path" \
+    "$approved_plan_digest" <<'PY'
 import json
 import sys
 
@@ -174,6 +251,10 @@ assert {
 assert {"AGENTS.md", "CLAUDE.md"} <= set(result["created_paths"])
 if sys.argv[6] != "-":
     assert sys.argv[6] in result["preserved_paths"]
+assert result["applied_plan_digest"] == {
+    "algorithm": "sha256",
+    "digest": sys.argv[7],
+}
 PY
   test "$(
     cat "$template_workspace/existing-content.txt"
@@ -185,6 +266,194 @@ PY
     )" = "$preserved_template_sha"
   fi
 done <"$template_cases_fixture"
+
+stale_workspace="$temporary_root/stale-plan"
+mkdir -p "$stale_workspace"
+stale_arguments=(
+  "$stale_workspace"
+  --name 'Stale plan'
+  --kind project
+  --template folderbase.project@0.2.2
+  --answer 'purpose=Refuse unreviewed membership changes.'
+  --answer 'current_state=The preview begins from an empty folder.'
+  --answer 'next_action=Apply only the exact reviewed plan.'
+  --json
+)
+"$folderbase" init \
+  "${stale_arguments[@]:0:1}" \
+  --dry-run \
+  "${stale_arguments[@]:1}" \
+  >"$temporary_root/stale-plan-preview.json"
+stale_digest=$(read_plan_digest "$temporary_root/stale-plan-preview.json")
+printf '%s\n' 'added after preview' >"$stale_workspace/unreviewed.txt"
+snapshot_workspace \
+  "$stale_workspace" \
+  "$temporary_root/stale-plan-before.json"
+if "$folderbase" init \
+  "${stale_arguments[@]:0:1}" \
+  --expected-plan-digest "$stale_digest" \
+  "${stale_arguments[@]:1}" \
+  >"$temporary_root/stale-plan-apply.json" \
+  2>"$temporary_root/stale-plan-apply.err"
+then
+  printf '%s\n' 'A stale initialization plan unexpectedly applied.' >&2
+  exit 1
+fi
+test ! -s "$temporary_root/stale-plan-apply.json"
+assert_json_error_code \
+  "$temporary_root/stale-plan-apply.err" \
+  initialization_plan_changed
+snapshot_workspace \
+  "$stale_workspace" \
+  "$temporary_root/stale-plan-after.json"
+cmp \
+  "$temporary_root/stale-plan-before.json" \
+  "$temporary_root/stale-plan-after.json"
+
+changed_request_workspace="$temporary_root/changed-request"
+mkdir -p "$changed_request_workspace"
+changed_request_arguments=(
+  "$changed_request_workspace"
+  --name 'Approved name'
+  --kind project
+  --template folderbase.project@0.2.2
+  --answer 'purpose=Bind the complete request.'
+  --answer 'current_state=The approved request has one exact name.'
+  --answer 'next_action=Reject a changed request.'
+  --json
+)
+"$folderbase" init \
+  "${changed_request_arguments[@]:0:1}" \
+  --dry-run \
+  "${changed_request_arguments[@]:1}" \
+  >"$temporary_root/changed-request-preview.json"
+changed_request_digest=$(
+  read_plan_digest "$temporary_root/changed-request-preview.json"
+)
+snapshot_workspace \
+  "$changed_request_workspace" \
+  "$temporary_root/changed-request-before.json"
+if "$folderbase" init \
+  "$changed_request_workspace" \
+  --name 'Different name' \
+  --kind project \
+  --template folderbase.project@0.2.2 \
+  --answer 'purpose=Bind the complete request.' \
+  --answer 'current_state=The approved request has one exact name.' \
+  --answer 'next_action=Reject a changed request.' \
+  --expected-plan-digest "$changed_request_digest" \
+  --json \
+  >"$temporary_root/changed-request-apply.json" \
+  2>"$temporary_root/changed-request-apply.err"
+then
+  printf '%s\n' 'A changed initialization request unexpectedly applied.' >&2
+  exit 1
+fi
+test ! -s "$temporary_root/changed-request-apply.json"
+assert_json_error_code \
+  "$temporary_root/changed-request-apply.err" \
+  initialization_plan_changed
+snapshot_workspace \
+  "$changed_request_workspace" \
+  "$temporary_root/changed-request-after.json"
+cmp \
+  "$temporary_root/changed-request-before.json" \
+  "$temporary_root/changed-request-after.json"
+
+replaced_root="$temporary_root/replaced-root"
+original_root="$temporary_root/replaced-root-original"
+mkdir -p "$replaced_root"
+printf '%s\n' 'visible bytes stay identical' >"$replaced_root/visible.txt"
+replaced_root_arguments=(
+  "$replaced_root"
+  --name 'Physical root identity'
+  --kind project
+  --template folderbase.project@0.2.2
+  --answer 'purpose=Bind one physical directory.'
+  --answer 'current_state=The selected root may be replaced at the same path.'
+  --answer 'next_action=Reject the replacement.'
+  --json
+)
+"$folderbase" init \
+  "${replaced_root_arguments[@]:0:1}" \
+  --dry-run \
+  "${replaced_root_arguments[@]:1}" \
+  >"$temporary_root/replaced-root-preview.json"
+replaced_root_digest=$(
+  read_plan_digest "$temporary_root/replaced-root-preview.json"
+)
+mv "$replaced_root" "$original_root"
+mkdir -p "$replaced_root"
+printf '%s\n' 'visible bytes stay identical' >"$replaced_root/visible.txt"
+snapshot_workspace \
+  "$replaced_root" \
+  "$temporary_root/replaced-root-before.json"
+if "$folderbase" init \
+  "${replaced_root_arguments[@]:0:1}" \
+  --expected-plan-digest "$replaced_root_digest" \
+  "${replaced_root_arguments[@]:1}" \
+  >"$temporary_root/replaced-root-apply.json" \
+  2>"$temporary_root/replaced-root-apply.err"
+then
+  printf '%s\n' 'A same-path replacement root unexpectedly initialized.' >&2
+  exit 1
+fi
+test ! -s "$temporary_root/replaced-root-apply.json"
+assert_json_error_code \
+  "$temporary_root/replaced-root-apply.err" \
+  initialization_plan_changed
+snapshot_workspace \
+  "$replaced_root" \
+  "$temporary_root/replaced-root-after.json"
+cmp \
+  "$temporary_root/replaced-root-before.json" \
+  "$temporary_root/replaced-root-after.json"
+test "$(cat "$original_root/visible.txt")" = 'visible bytes stay identical'
+
+for rejected_digest in malformed "$(printf 'e%.0s' {1..64})"
+do
+  digest_workspace="$temporary_root/rejected-digest-$rejected_digest"
+  mkdir -p "$digest_workspace"
+  digest_arguments=(
+    "$digest_workspace"
+    --name 'Rejected digest'
+    --kind project
+    --template folderbase.project@0.2.2
+    --answer 'purpose=Reject an unapproved digest.'
+    --answer 'current_state=The supplied digest is not the preview identity.'
+    --answer 'next_action=Leave the folder unchanged.'
+    --json
+  )
+  snapshot_workspace \
+    "$digest_workspace" \
+    "$temporary_root/rejected-digest-$rejected_digest-before.json"
+  if "$folderbase" init \
+    "${digest_arguments[@]:0:1}" \
+    --expected-plan-digest "$rejected_digest" \
+    "${digest_arguments[@]:1}" \
+    >"$temporary_root/rejected-digest-apply.json" \
+    2>"$temporary_root/rejected-digest-apply.err"
+  then
+    printf 'A rejected initialization digest unexpectedly applied: %s\n' \
+      "$rejected_digest" >&2
+    exit 1
+  fi
+  test ! -s "$temporary_root/rejected-digest-apply.json"
+  if [[ "$rejected_digest" = malformed ]]; then
+    rejected_digest_error=invalid_initialization_plan_digest
+  else
+    rejected_digest_error=initialization_plan_changed
+  fi
+  assert_json_error_code \
+    "$temporary_root/rejected-digest-apply.err" \
+    "$rejected_digest_error"
+  snapshot_workspace \
+    "$digest_workspace" \
+    "$temporary_root/rejected-digest-$rejected_digest-after.json"
+  cmp \
+    "$temporary_root/rejected-digest-$rejected_digest-before.json" \
+    "$temporary_root/rejected-digest-$rejected_digest-after.json"
+done
 
 unsupported_custom_workspace="$temporary_root/unsupported-custom-template"
 mkdir -p "$unsupported_custom_workspace"
@@ -239,7 +508,42 @@ no_adapter_arguments=(
   --dry-run \
   "${no_adapter_arguments[@]:1}" \
   >"$temporary_root/no-agent-adapters-dry-run.json"
-"$folderbase" init "${no_adapter_arguments[@]}" \
+no_adapter_digest=$(
+  read_plan_digest "$temporary_root/no-agent-adapters-dry-run.json"
+)
+snapshot_workspace \
+  "$no_adapter_workspace" \
+  "$temporary_root/no-agent-adapters-before-toggle.json"
+if "$folderbase" init \
+  "$no_adapter_workspace" \
+  --name 'No agent adapters' \
+  --kind custom \
+  --template folderbase.custom@0.2.0 \
+  --answer 'purpose=Initialize without creating or changing agent adapters.' \
+  --answer 'current_state=Existing adapter files belong to the user.' \
+  --answer 'next_action=Preserve both adapter files.' \
+  --expected-plan-digest "$no_adapter_digest" \
+  --json \
+  >"$temporary_root/no-agent-adapters-toggle.json" \
+  2>"$temporary_root/no-agent-adapters-toggle.err"
+then
+  printf '%s\n' 'A changed adapter choice unexpectedly applied.' >&2
+  exit 1
+fi
+test ! -s "$temporary_root/no-agent-adapters-toggle.json"
+assert_json_error_code \
+  "$temporary_root/no-agent-adapters-toggle.err" \
+  initialization_plan_changed
+snapshot_workspace \
+  "$no_adapter_workspace" \
+  "$temporary_root/no-agent-adapters-after-toggle.json"
+cmp \
+  "$temporary_root/no-agent-adapters-before-toggle.json" \
+  "$temporary_root/no-agent-adapters-after-toggle.json"
+"$folderbase" init \
+  "${no_adapter_arguments[@]:0:1}" \
+  --expected-plan-digest "$no_adapter_digest" \
+  "${no_adapter_arguments[@]:1}" \
   >"$temporary_root/no-agent-adapters-init.json"
 "$folderbase" validate "$no_adapter_workspace" --json \
   >"$temporary_root/no-agent-adapters-validate.json"
@@ -270,6 +574,7 @@ assert preview["warnings"] == [
 ]
 assert adapter_paths <= set(result["preserved_paths"])
 assert not adapter_paths & set(result["created_paths"])
+assert result["applied_plan_digest"] == preview["plan_digest"]
 assert manifest["adapters"] == []
 assert validation["valid"] is True
 PY
@@ -292,15 +597,29 @@ printf '\000\001\002' >"$workspace/movie.bin"
 
 "$folderbase" inspect "$workspace" --json >"$temporary_root/inspect.json"
 "$folderbase" init "$workspace" --dry-run --json >"$temporary_root/dry-run.json"
+workspace_digest=$(read_plan_digest "$temporary_root/dry-run.json")
 test ! -e "$workspace/.folderbase"
 test ! -e "$workspace/FOLDERBASE.md"
 test "$(sed -n '1p' "$workspace/note.md")" = alpha
 
-"$folderbase" init "$workspace" --json >"$temporary_root/init.json"
+"$folderbase" init \
+  "$workspace" \
+  --expected-plan-digest "$workspace_digest" \
+  --json >"$temporary_root/init.json"
 "$folderbase" validate "$workspace" --json >"$temporary_root/validate.json"
-python3 -c \
-  'import json,sys; assert json.load(open(sys.argv[1]))["valid"] is True' \
-  "$temporary_root/validate.json"
+python3 - \
+  "$temporary_root/dry-run.json" \
+  "$temporary_root/init.json" \
+  "$temporary_root/validate.json" <<'PY'
+import json
+import sys
+
+preview = json.load(open(sys.argv[1], encoding="utf-8"))
+result = json.load(open(sys.argv[2], encoding="utf-8"))
+validation = json.load(open(sys.argv[3], encoding="utf-8"))
+assert result["applied_plan_digest"] == preview["plan_digest"]
+assert validation["valid"] is True
+PY
 
 "$folderbase" workspace list "$workspace" --json \
   >"$temporary_root/list.json"
@@ -455,6 +774,9 @@ ln -s \
   >"$temporary_root/adversarial-analysis.json"
 "$folderbase" init "$adversarial_workspace" --dry-run --json \
   >"$temporary_root/adversarial-dry-run.json"
+adversarial_digest=$(
+  read_plan_digest "$temporary_root/adversarial-dry-run.json"
+)
 
 python3 - \
   "$temporary_root/adversarial-inspect.json" \
@@ -502,17 +824,28 @@ do
   fi
 done
 
-"$folderbase" init "$adversarial_workspace" --json \
+"$folderbase" init \
+  "$adversarial_workspace" \
+  --expected-plan-digest "$adversarial_digest" \
+  --json \
   >"$temporary_root/adversarial-init.json"
 "$folderbase" workspace list "$adversarial_workspace" --json \
   >"$temporary_root/adversarial-list.json"
-python3 -c '
-import json, sys
-entries = json.load(open(sys.argv[1], encoding="utf-8"))["entries"]
+python3 - \
+  "$temporary_root/adversarial-dry-run.json" \
+  "$temporary_root/adversarial-init.json" \
+  "$temporary_root/adversarial-list.json" <<'PY'
+import json
+import sys
+
+preview = json.load(open(sys.argv[1], encoding="utf-8"))
+result = json.load(open(sys.argv[2], encoding="utf-8"))
+entries = json.load(open(sys.argv[3], encoding="utf-8"))["entries"]
 by_path = {entry["path"]: entry for entry in entries}
+assert result["applied_plan_digest"] == preview["plan_digest"]
 assert by_path["escape.txt"]["kind"] == "symlink"
 assert by_path["escape.txt"]["editable"] is False
-' "$temporary_root/adversarial-list.json"
+PY
 
 if "$folderbase" workspace read \
   "$adversarial_workspace" \
@@ -566,6 +899,7 @@ template_args=(
   --dry-run \
   "${template_args[@]:1}" \
   >"$temporary_root/template-dry-run.json"
+template_digest=$(read_plan_digest "$temporary_root/template-dry-run.json")
 test ! -e "$template_file_sentinel"
 test ! -e "$template_process_sentinel"
 python3 - \
@@ -588,21 +922,30 @@ expected = (
 assert expected.encode("utf-8") in entry.encode("utf-8")
 PY
 
-"$folderbase" init "${template_args[@]}" \
+"$folderbase" init \
+  "${template_args[@]:0:1}" \
+  --expected-plan-digest "$template_digest" \
+  "${template_args[@]:1}" \
   >"$temporary_root/template-init.json"
 test ! -e "$template_file_sentinel"
 test ! -e "$template_process_sentinel"
 python3 - \
+  "$temporary_root/template-dry-run.json" \
+  "$temporary_root/template-init.json" \
   "$template_workspace/FOLDERBASE.md" \
   "$template_prompt" \
   "$template_recursive" <<'PY'
+import json
 import sys
 
-actual = open(sys.argv[1], "rb").read()
+preview = json.load(open(sys.argv[1], encoding="utf-8"))
+result = json.load(open(sys.argv[2], encoding="utf-8"))
+actual = open(sys.argv[3], "rb").read()
 expected = (
-    f"## Purpose\n{sys.argv[2]}\n\n"
-    f"## Current state\n{sys.argv[3]}\n\n"
+    f"## Purpose\n{sys.argv[4]}\n\n"
+    f"## Current state\n{sys.argv[5]}\n\n"
 ).encode("utf-8")
+assert result["applied_plan_digest"] == preview["plan_digest"]
 assert expected in actual
 PY
 "$folderbase" validate "$template_workspace" --json \

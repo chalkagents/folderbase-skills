@@ -21,6 +21,7 @@ for root_file in \
   LICENSE \
   NOTICE \
   SECURITY.md \
+  docs/test-evidence/core-v02-contract-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
   .gitignore \
@@ -47,9 +48,19 @@ test -x "$repository_root/tests/distribution.sh"
 test -f "$skill_file"
 test -f "$protocol_reference"
 
-published_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.1.0'
-grep -F -q -- "$published_skill_source" "$repository_root/README.md"
-grep -F -q -- "$published_skill_source" "$repository_root/tests/distribution.sh"
+candidate_skill_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
+published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.1.0'
+grep -F -q -- "$candidate_skill_source" "$repository_root/README.md"
+grep -F -q -- "$published_baseline_source" "$repository_root/tests/distribution.sh"
+for tested_agent in \
+  'Codex' \
+  'Claude Code' \
+  'Cursor' \
+  'Hermes Agent' \
+  'OpenClaw'
+do
+  grep -F -q -- "$tested_agent" "$repository_root/README.md"
+done
 
 test -z "$(find "$skill_directory" -type l -print -quit)"
 test -z "$(find "$skill_directory" -type f -perm -111 -print -quit)"
@@ -102,8 +113,16 @@ for required_text in \
   'folderbase inspect' \
   'folderbase init' \
   'folderbase --version' \
-  'folderbase 0.1.0' \
+  'folderbase 0.2.0' \
   '--dry-run' \
+  'Preview, then initialize only after explicit user approval' \
+  'plan_digest' \
+  '--expected-plan-digest' \
+  'applied_plan_digest' \
+  'outcome is unknown' \
+  'exact approval-bound initialization outcome remains unknown' \
+  'process has terminated' \
+  'never run initialization again' \
   'folderbase validate' \
   'folderbase workspace list' \
   'folderbase workspace read' \
@@ -141,11 +160,11 @@ done
 
 for required_text in \
   'https://github.com/chalkagents/folderbase' \
-  '2daf6968387e8c8111dfa03a922ed8866c015e15' \
-  'v0.1.0' \
+  'f5ae84c5c247274a23cef901367fb83533a64f4d' \
+  'v0.2.0' \
   'Protocol 0.1' \
   'Template Protocol 0.2' \
-  '0.1.0'
+  '0.2.0'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
 done
@@ -167,6 +186,29 @@ test "$(
 grep -F -q -- 'ACCEPTANCE_RED_EXIT=1' "$template_red_evidence"
 grep -F -q -- 'CORE_CONTRACT_RED_EXIT=1' "$template_red_evidence"
 grep -F -q -- 'worktree remove --force' "$template_red_evidence"
+grep -F -q -- 'CORE_V02_CONTRACT_RED_EXIT=1' \
+  "$repository_root/docs/test-evidence/core-v02-contract-red.md"
+
+for local_install_contract in \
+  'verify_local_install codex .agents/skills' \
+  'verify_local_install claude-code .claude/skills' \
+  'verify_local_install cursor .agents/skills' \
+  'verify_local_install hermes-agent .hermes/skills' \
+  'verify_local_install openclaw skills'
+do
+  grep -F -q -- "$local_install_contract" \
+    "$repository_root/tests/distribution.sh"
+done
+for published_install_contract in \
+  'verify_published_install codex .agents/skills' \
+  'verify_published_install claude-code .claude/skills' \
+  'verify_published_install cursor .agents/skills' \
+  'verify_published_install hermes-agent .hermes/skills' \
+  'verify_published_install openclaw skills'
+do
+  grep -F -q -- "$published_install_contract" \
+    "$repository_root/tests/distribution.sh"
+done
 
 private_pattern='/(Users|home)/[^/]+/|BEGIN [A-Z ]*PRIVATE KEY|gh[pousr]_[A-Za-z0-9_]{20,}'
 private_hits=''

@@ -14,11 +14,11 @@ trap 'rm -R "$temporary_root"' EXIT
 
 export DISABLE_TELEMETRY=1
 skills_cli="$repository_root/node_modules/.bin/skills"
-published_source=${FOLDERBASE_SKILLS_PUBLISHED_SOURCE:-https://github.com/chalkagents/folderbase-skills/tree/v0.2.0}
-published_ref=${FOLDERBASE_SKILLS_PUBLISHED_REF:-v0.2.0}
-published_hash=${FOLDERBASE_SKILLS_PUBLISHED_HASH:-9255a877be504a0bc67cdeff547d77e1906126a6ee40b8c8f5f18b0a83a40feb}
-published_skill_sha=${FOLDERBASE_SKILLS_SKILL_SHA:-64c70e440fb0aa6fb422f56da75bd711851c585f4fc953724fb00ebcd539dfee}
-published_reference_sha=${FOLDERBASE_SKILLS_REFERENCE_SHA:-79e3755a0e9c7cddb65ae57d2ef073356ca2840c07cb82fa6325f933d7b75a44}
+published_source=${FOLDERBASE_SKILLS_PUBLISHED_SOURCE:-https://github.com/chalkagents/folderbase-skills/tree/v0.2.1}
+published_ref=${FOLDERBASE_SKILLS_PUBLISHED_REF:-v0.2.1}
+published_hash=${FOLDERBASE_SKILLS_PUBLISHED_HASH:-d829f6f4a218b8771e11f42de905ab2b24e15707a05e16dfb180414ba8749fde}
+published_skill_sha=${FOLDERBASE_SKILLS_SKILL_SHA:-6127734f977c9b2bf983043e1f30666ab920efc7f732943bab630fa923d29a97}
+published_reference_sha=${FOLDERBASE_SKILLS_REFERENCE_SHA:-a41b2bc5d83dad6df2a2a3ceca0618980b9f54db4063a82d0133c5239c7b2821}
 test -x "$skills_cli"
 
 local_list_output=$(
@@ -119,4 +119,5 @@ verify_published_install cursor .agents/skills
 verify_published_install hermes-agent .hermes/skills
 verify_published_install openclaw skills
 
-printf '%s\n' 'Local and immutable published Folderbase skill installs are valid.'
+printf '%s\n' \
+  'Local and version-pinned published Folderbase skill installs are valid.'

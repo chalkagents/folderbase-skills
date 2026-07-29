@@ -23,6 +23,7 @@ for root_file in \
   SECURITY.md \
   docs/test-evidence/core-v02-contract-red.md \
   docs/test-evidence/core-v021-contract-red.md \
+  docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
   .gitignore \
@@ -49,8 +50,25 @@ test -x "$repository_root/tests/distribution.sh"
 test -f "$skill_file"
 test -f "$protocol_reference"
 
+release_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.1'
+release_core_commit='3a3e9df836a1fe0a2f33946205f899cc9483dc1b'
+normalized_readme_text=$(
+  tr '\n' ' ' <"$repository_root/README.md" |
+    tr -s '[:space:]' ' '
+)
+grep -F -q -- 'current Folderbase Skills release is `v0.2.1`' \
+  <<<"$normalized_readme_text"
+grep -F -q -- "$release_source" "$repository_root/README.md"
+grep -F -q -- "$release_core_commit" "$repository_root/README.md"
+grep -F -q -- 'becomes installable only after this reviewed head is merged and tagged' \
+  <<<"$normalized_readme_text"
+grep -F -x -q -- '## Contract' "$repository_root/README.md"
+if grep -F -x -q -- '## Development contract' "$repository_root/README.md"; then
+  printf '%s\n' 'README still describes the public pairing as developmental.' >&2
+  exit 1
+fi
+
 published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
-grep -F -q -- "$published_baseline_source" "$repository_root/README.md"
 grep -F -q -- "$published_baseline_source" "$repository_root/tests/distribution.sh"
 for tested_agent in \
   'Codex' \
@@ -190,6 +208,10 @@ grep -F -q -- 'CORE_V02_CONTRACT_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/core-v02-contract-red.md"
 grep -F -q -- 'CORE_V021_CONTRACT_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/core-v021-contract-red.md"
+grep -F -q -- 'SKILLS_V021_RELEASE_RED_EXIT=1' \
+  "$repository_root/docs/test-evidence/skills-v021-release-red.md"
+grep -F -q -- 'f7a2749548e96c1841fc8675f4a2242119b10aaa' \
+  "$repository_root/docs/test-evidence/skills-v021-release-red.md"
 
 for local_install_contract in \
   'verify_local_install codex .agents/skills' \

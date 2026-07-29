@@ -23,6 +23,7 @@ for root_file in \
   SECURITY.md \
   docs/test-evidence/core-v02-contract-red.md \
   docs/test-evidence/core-v021-contract-red.md \
+  docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
@@ -60,16 +61,23 @@ grep -F -q -- 'current Folderbase Skills release is `v0.2.1`' \
   <<<"$normalized_readme_text"
 grep -F -q -- "$release_source" "$repository_root/README.md"
 grep -F -q -- "$release_core_commit" "$repository_root/README.md"
-grep -F -q -- 'becomes installable only after this reviewed head is merged and tagged' \
-  <<<"$normalized_readme_text"
+if grep -F -q -- \
+  'becomes installable only after this reviewed head is merged and tagged' \
+  <<<"$normalized_readme_text"; then
+  printf '%s\n' 'README still carries the during-release availability warning.' >&2
+  exit 1
+fi
 grep -F -x -q -- '## Contract' "$repository_root/README.md"
 if grep -F -x -q -- '## Development contract' "$repository_root/README.md"; then
   printf '%s\n' 'README still describes the public pairing as developmental.' >&2
   exit 1
 fi
 
-published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.0'
+published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.1'
 grep -F -q -- "$published_baseline_source" "$repository_root/tests/distribution.sh"
+grep -F -q -- \
+  'Local and version-pinned published Folderbase skill installs are valid.' \
+  "$repository_root/tests/distribution.sh"
 for tested_agent in \
   'Codex' \
   'Claude Code' \
@@ -212,6 +220,21 @@ grep -F -q -- 'SKILLS_V021_RELEASE_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/skills-v021-release-red.md"
 grep -F -q -- 'f7a2749548e96c1841fc8675f4a2242119b10aaa' \
   "$repository_root/docs/test-evidence/skills-v021-release-red.md"
+publication_evidence="$repository_root/docs/test-evidence/skills-v021-publication.md"
+for publication_claim in \
+  'ACCEPTANCE_PUBLICATION_RED_EXIT=1' \
+  'DISTRIBUTION_PUBLICATION_RED_EXIT=1' \
+  'DISTRIBUTION_PUBLICATION_GREEN_EXIT=0' \
+  '1bc5a960226d0d5a396f06f0a068bdef2129069c' \
+  '172382a5548b7761527173a810d72e3739564f70' \
+  '30410246722' \
+  '30410323435' \
+  'd829f6f4a218b8771e11f42de905ab2b24e15707a05e16dfb180414ba8749fde' \
+  '6127734f977c9b2bf983043e1f30666ab920efc7f732943bab630fa923d29a97' \
+  'a41b2bc5d83dad6df2a2a3ceca0618980b9f54db4063a82d0133c5239c7b2821'
+do
+  grep -F -q -- "$publication_claim" "$publication_evidence"
+done
 
 for local_install_contract in \
   'verify_local_install codex .agents/skills' \

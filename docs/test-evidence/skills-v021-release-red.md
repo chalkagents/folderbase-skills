@@ -37,6 +37,9 @@ release_contract() {
     grep -F -q -- \
       '3a3e9df836a1fe0a2f33946205f899cc9483dc1b' \
       <<<"$baseline_readme" &&
+    grep -F -q -- \
+      'becomes installable only after this reviewed head is merged and tagged' \
+      <<<"$normalized_readme_text" &&
     grep -F -x -q -- '## Contract' <<<"$baseline_readme"
 }
 

@@ -10,7 +10,7 @@ temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
 core_repository=https://github.com/chalkagents/folderbase.git
-core_ref=${FOLDERBASE_CORE_REF:-3a3e9df836a1fe0a2f33946205f899cc9483dc1b}
+core_ref=${FOLDERBASE_CORE_REF:-91530adbd984fdd61f22ecd73dd48c80e8364416}
 
 read_plan_digest() {
   python3 - "$1" <<'PY'
@@ -100,11 +100,11 @@ else
 fi
 
 test -x "$folderbase"
-test "$("$folderbase" --version)" = 'folderbase 0.2.1'
+test "$("$folderbase" --version)" = 'folderbase 0.3.0'
 
 "$folderbase" --help >"$temporary_root/folderbase-help.txt"
 "$folderbase" init --help >"$temporary_root/init-help.txt"
-for command in inspect init validate transform version workspace
+for command in attest inspect init validate transform version workspace
 do
   grep -Fq "$command" "$temporary_root/folderbase-help.txt"
 done
@@ -607,18 +607,47 @@ test "$(sed -n '1p' "$workspace/note.md")" = alpha
   --expected-plan-digest "$workspace_digest" \
   --json >"$temporary_root/init.json"
 "$folderbase" validate "$workspace" --json >"$temporary_root/validate.json"
+"$folderbase" attest "$workspace" --json >"$temporary_root/attest-first.json"
+"$folderbase" attest "$workspace" --json >"$temporary_root/attest-second.json"
 python3 - \
   "$temporary_root/dry-run.json" \
   "$temporary_root/init.json" \
-  "$temporary_root/validate.json" <<'PY'
+  "$temporary_root/validate.json" \
+  "$temporary_root/attest-first.json" \
+  "$temporary_root/attest-second.json" \
+  "$workspace" <<'PY'
 import json
+import hashlib
+import os
+import re
 import sys
 
 preview = json.load(open(sys.argv[1], encoding="utf-8"))
 result = json.load(open(sys.argv[2], encoding="utf-8"))
 validation = json.load(open(sys.argv[3], encoding="utf-8"))
+first_attestation = json.load(open(sys.argv[4], encoding="utf-8"))
+second_attestation = json.load(open(sys.argv[5], encoding="utf-8"))
+manifest_bytes = open(
+    os.path.join(sys.argv[6], ".folderbase", "manifest.json"), "rb"
+).read()
+manifest = json.loads(manifest_bytes)
 assert result["applied_plan_digest"] == preview["plan_digest"]
 assert validation["valid"] is True
+assert first_attestation == second_attestation
+assert set(first_attestation) == {
+    "root",
+    "folderbase_id",
+    "protocol_version",
+    "manifest_sha256",
+    "root_instance_sha256",
+}
+assert os.path.isabs(first_attestation["root"])
+assert os.path.realpath(first_attestation["root"]) == os.path.realpath(sys.argv[6])
+assert first_attestation["folderbase_id"] == result["folderbase_id"]
+assert first_attestation["folderbase_id"] == manifest["folderbase"]["id"]
+assert first_attestation["protocol_version"] == manifest["protocol_version"]
+assert first_attestation["manifest_sha256"] == hashlib.sha256(manifest_bytes).hexdigest()
+assert re.fullmatch(r"[0-9a-f]{64}", first_attestation["root_instance_sha256"])
 PY
 
 "$folderbase" workspace list "$workspace" --json \

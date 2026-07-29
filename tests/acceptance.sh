@@ -23,6 +23,7 @@ for root_file in \
   SECURITY.md \
   docs/test-evidence/core-v02-contract-red.md \
   docs/test-evidence/core-v021-contract-red.md \
+  docs/test-evidence/core-v030-contract-red.md \
   docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
@@ -67,9 +68,9 @@ if grep -F -q -- \
   printf '%s\n' 'README still carries the during-release availability warning.' >&2
   exit 1
 fi
-grep -F -x -q -- '## Contract' "$repository_root/README.md"
-if grep -F -x -q -- '## Development contract' "$repository_root/README.md"; then
-  printf '%s\n' 'README still describes the public pairing as developmental.' >&2
+grep -F -x -q -- '## Development contract' "$repository_root/README.md"
+if grep -F -x -q -- '## Contract' "$repository_root/README.md"; then
+  printf '%s\n' 'README incorrectly describes the next pairing as published.' >&2
   exit 1
 fi
 
@@ -139,7 +140,19 @@ for required_text in \
   'folderbase inspect' \
   'folderbase init' \
   'folderbase --version' \
-  'folderbase 0.2.1' \
+  'folderbase 0.3.0' \
+  'folderbase attest' \
+  'point-in-time continuity evidence' \
+  'never authorization' \
+  'including reads and writes' \
+  'does not prove ordinary file content is unchanged' \
+  'across devices' \
+  'folder-to-Folderbase adoption' \
+  'must not use `transform`' \
+  'cannot share or synchronize' \
+  'managed Live Folder sharing' \
+  'separately authenticated Folderbase Platform' \
+  'OS or harness authority' \
   '--dry-run' \
   'Preview, then initialize only after explicit user approval' \
   'plan_digest' \
@@ -186,11 +199,12 @@ done
 
 for required_text in \
   'https://github.com/chalkagents/folderbase' \
-  '3a3e9df836a1fe0a2f33946205f899cc9483dc1b' \
-  'v0.2.1' \
+  '91530adbd984fdd61f22ecd73dd48c80e8364416' \
+  'v0.3.0' \
   'Protocol 0.1' \
   'Template Protocol 0.2' \
-  '0.2.1'
+  'Reorganization Protocol 0.3' \
+  '0.3.0'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
 done
@@ -216,6 +230,8 @@ grep -F -q -- 'CORE_V02_CONTRACT_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/core-v02-contract-red.md"
 grep -F -q -- 'CORE_V021_CONTRACT_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/core-v021-contract-red.md"
+grep -F -q -- 'CORE_V030_CONTRACT_RED_EXIT=1' \
+  "$repository_root/docs/test-evidence/core-v030-contract-red.md"
 grep -F -q -- 'SKILLS_V021_RELEASE_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/skills-v021-release-red.md"
 grep -F -q -- 'f7a2749548e96c1841fc8675f4a2242119b10aaa' \

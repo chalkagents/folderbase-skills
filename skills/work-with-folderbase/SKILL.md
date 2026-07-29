@@ -1,6 +1,6 @@
 ---
 name: work-with-folderbase
-description: Safely inspect, initialize, validate, navigate, edit, and reorganize Folderbase workspaces with the official folderbase CLI. Use when an agent encounters FOLDERBASE.md or .folderbase/manifest.json, needs to turn an ordinary folder into a Folderbase, work with its files across sessions, preserve versions, or propose agent-safe structural changes.
+description: Safely inspect, initialize, validate, navigate, edit, and propose structural changes to Folderbase workspaces with the official folderbase CLI. Use when an agent encounters FOLDERBASE.md or .folderbase/manifest.json, needs to turn an ordinary folder into a Folderbase, work with its files across sessions, preserve versions, or plan an agent-safe reorganization.
 ---
 
 # Work with Folderbase
@@ -27,11 +27,29 @@ Read `FOLDERBASE.md` first, then use the official CLI:
 
 ```sh
 folderbase validate /path/to/root --json
+folderbase attest /path/to/root --json
 folderbase workspace list /path/to/root --json
 folderbase workspace read /path/to/root FOLDERBASE.md --json
 ```
 
 Do not read or edit `.folderbase/` internals directly.
+
+Treat the five-field attestation receipt as point-in-time continuity evidence
+about one local materialization, not proof of ongoing continuity. The
+Folderbase ID, protocol version, and exact manifest digest identify the logical
+state; the root-instance digest is local to one materialized root. The display
+root is context, never authorization. Do not use any receipt field as a share
+grant, sync proof, cloud identity, or permission, and never compare
+root-instance digests across devices.
+
+Before later Folderbase work, including reads and writes, after a turn or
+session boundary or any possible root replacement, run fresh `validate`,
+`attest`, and `workspace list` operations. Compare the logical tuple and
+root-instance digest with the retained receipt. If attestation fails or either
+identity changes, stop and establish the active root and user intent again. An
+unchanged receipt does not prove ordinary file content is unchanged or make a
+cached read current. Re-read every intended target and use its latest digest
+before editing.
 
 ## Apply the safety contract
 
@@ -68,7 +86,7 @@ Before any command that can write, verify the official CLI:
 folderbase --version
 ```
 
-Require the exact tested output `folderbase 0.2.1`. A missing CLI, a different
+Require the exact tested output `folderbase 0.3.0`. A missing CLI, a different
 version, or an unfamiliar command surface keeps the session read-only. Do not
 install, upgrade, downgrade, or substitute a CLI without explicit user
 approval.
@@ -222,7 +240,7 @@ The selected template is starting guidance, not a rigid taxonomy. A Folderbase
 remains an ordinary folder: its useful structure may expand as work and life
 change, and a later separately reviewed migration may reorganize it. Template
 origin does not require continuing layout conformance. Do not invent or invoke
-a template expansion command on CLI 0.2.1.
+a template expansion command on CLI 0.3.0.
 
 ## Navigate all file types
 
@@ -260,7 +278,22 @@ printf '%s' "$UPDATED_TEXT" | folderbase workspace save \
 On a stale SHA or conflict, stop. Re-read, explain the competing version, and
 ask the user how to reconcile it. Never retry blindly or force an overwrite.
 
-## Reorganize through a reviewed migration
+## Plan changes to an existing Folderbase
+
+Core v0.3.0 also publishes inert Reorganization Protocol 0.3 Draft and Plan
+records, but it does not expose a CLI apply or recovery workflow for them.
+Never hand-author one, treat possession as authority, or claim it changed user
+files. This skill can ask consequential questions and present a proposed
+reorganization, but it cannot apply a batch structural reorganization to an
+already initialized Folderbase. Remain plan-only until a separately supported,
+reviewed workflow exists.
+
+## Adopt an ordinary folder through a reviewed transform
+
+The released `transform` workflow is only for folder-to-Folderbase adoption and
+its supported boundary migrations. It is not the Reorganization Protocol apply
+surface. An already initialized Folderbase must not use `transform` as an
+in-place restructuring shortcut.
 
 For a disorganized folder or a structural change, analyze without creating
 protocol state:
@@ -296,6 +329,22 @@ Application revalidates the approved source inventory. If the source changed
 after planning, stop on `migration_source_changed`; do not regenerate,
 reapprove, or retry the migration on the user's behalf. Re-analyze and present
 the changed proposal for a new decision.
+
+## Hand off sharing and synchronization
+
+Core v0.3.0 and this skill cannot share or synchronize a Folderbase. Do not
+invent cloud endpoints or treat a path, receipt, adapter, or copied directory
+as a share grant. Folderbase-managed Live Folder sharing and sync to a second
+device or remote agent require a separately authenticated Folderbase Platform
+grant and materialization flow. If that product surface is unavailable, report
+managed sharing or sync as unsupported.
+
+A user may instead intentionally copy, clone, or mount the ordinary folder into
+another workspace. That is filesystem interoperability, not managed sync. The
+receiving agent must establish the user's explicit intent and its actual local
+OS or harness authority, then run fresh `validate` and `attest` operations.
+After either kind of materialization, authorization comes from the Platform
+grant or the actual local authority—not from a path or attestation receipt.
 
 ## Fail closed
 

@@ -7,13 +7,14 @@ text, or implementation logic.
 
 ## Compatibility pin
 
-- Verified release tag: `v0.2.1`
+- Verified release tag: `v0.3.0`
 - Verified core commit:
-  `3a3e9df836a1fe0a2f33946205f899cc9483dc1b`
-- Crate and CLI version: `0.2.1`
+  `91530adbd984fdd61f22ecd73dd48c80e8364416`
+- Crate and CLI version: `0.3.0`
 - Folderbase Protocol 0.1
 - Folderbase manifest schema additions in Protocol 0.2
 - Template Protocol 0.2
+- Reorganization Protocol 0.3
 
 The `0.x` surface is pre-stable. Mutation requires this exact tested CLI
 release and protocol range. Any untested CLI release remains read-only until
@@ -21,12 +22,14 @@ this reference and the acceptance suite are updated.
 
 ## Authoritative documents
 
-- [Protocol specification](https://github.com/chalkagents/folderbase/blob/3a3e9df836a1fe0a2f33946205f899cc9483dc1b/docs/protocol-spec.md)
-- [Template protocol](https://github.com/chalkagents/folderbase/blob/3a3e9df836a1fe0a2f33946205f899cc9483dc1b/docs/template-protocol.md)
-- [Schemas and conformance artifacts](https://github.com/chalkagents/folderbase/blob/3a3e9df836a1fe0a2f33946205f899cc9483dc1b/protocol/README.md)
+- [Protocol specification](https://github.com/chalkagents/folderbase/blob/91530adbd984fdd61f22ecd73dd48c80e8364416/docs/protocol-spec.md)
+- [Template protocol](https://github.com/chalkagents/folderbase/blob/91530adbd984fdd61f22ecd73dd48c80e8364416/docs/template-protocol.md)
+- [Reorganization protocol](https://github.com/chalkagents/folderbase/blob/91530adbd984fdd61f22ecd73dd48c80e8364416/docs/reorganization-protocol.md)
+- [Schemas and conformance artifacts](https://github.com/chalkagents/folderbase/blob/91530adbd984fdd61f22ecd73dd48c80e8364416/protocol/README.md)
 
 ## Stable CLI operations
 
+- `folderbase attest`
 - `folderbase inspect`
 - `folderbase init`
 - `folderbase validate`
@@ -37,6 +40,24 @@ this reference and the acceptance suite are updated.
 
 Do not infer unpublished commands, private cloud endpoints, or repair
 semantics. Use `folderbase --help` and subcommand help to confirm arguments.
+
+`folderbase attest PATH --json` returns the display root, Folderbase ID,
+protocol version, exact manifest SHA-256, and one device-local root-instance
+SHA-256. The receipt is point-in-time evidence about one local materialization,
+not proof of ongoing continuity. Before later Folderbase work after a session
+boundary or possible replacement, attest again and compare the logical tuple
+and root-instance digest. It is not authorization, a share grant, portable
+cloud identity, a Folderbase Version, evidence that ordinary content is
+unchanged, or evidence that content is synchronized or Agent-ready. Do not
+compare the root-instance digest across devices.
+
+Core v0.3.0 has no sharing or synchronization command. Those operations require
+a separately authenticated product grant and materialization workflow when
+they are managed Live Folder sharing or sync. Ordinary filesystem copies,
+clones, and mounts remain possible under explicit user intent and real OS or
+harness authority, but Core attestation does not create that authority or prove
+that independently supplied folders are synchronized. Do not infer or invent a
+managed product surface from this Core reference.
 
 ## Tested initialization surface
 
@@ -61,7 +82,7 @@ The immutable release contains these built-in packages:
 | `folderbase.custom@0.2.0` | `custom` | A boundary no other starter fits honestly | `purpose`, `current_state`, `next_action` |
 
 `folderbase.project@0.2.1` is also discoverable in the immutable release, but
-its rendered entry lacks sections that CLI 0.2.1 validation requires. Preview
+its rendered entry lacks sections that CLI 0.3.0 validation requires. Preview
 it only when diagnosing existing provenance; do not apply it. New project
 initialization must use `folderbase.project@0.2.2`. Both packages take the same
 three required text answers.
@@ -72,7 +93,14 @@ optional answer when the name is already known. The CLI validates question IDs,
 answer types, required answers, duplicate answers, and exact built-in template
 versions. There is no external template loader, template-list command,
 post-initialization template expansion command, or in-place reorganization
-command in CLI 0.2.1.
+command in CLI 0.3.0. Core v0.3.0 publishes inert Reorganization Protocol 0.3
+Draft and Plan schemas, but the CLI does not apply or recover those records.
+Possession of a record grants no authority.
+
+The released `transform` command is a folder-to-Folderbase adoption and
+supported boundary-migration workflow. It is not an apply surface for
+Reorganization Protocol 0.3 and must not restructure an already initialized
+Folderbase in place.
 
 Packages use additive `create_if_missing` artifacts. They preserve every
 existing target and record template provenance as an origin, not as ongoing

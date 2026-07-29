@@ -39,11 +39,6 @@ tag in the source URL is intentional: review and install a version-pinned
 Folderbase Skills release rather than whatever happens to be on the
 repository's moving default branch.
 
-During release review, the `v0.3.0` source URL becomes installable only after
-this reviewed head is merged and tagged `v0.3.0`. Until both steps are
-complete, test this checkout locally; do not substitute the moving default
-branch or assume the tag already exists.
-
 Install its matching Folderbase CLI before asking an agent to mutate a
 Folderbase:
 

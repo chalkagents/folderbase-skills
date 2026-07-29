@@ -52,15 +52,18 @@ cargo install \
 
 Without a supported official CLI, the skill stays read-only.
 
-## Contract
+## Development contract
 
-This Skills release is validated against Folderbase Core and CLI `0.2.1` at
-the exact commit `3a3e9df836a1fe0a2f33946205f899cc9483dc1b`.
+The current default branch is validated for the next Skills release against
+Folderbase Core and CLI `0.3.0` at the exact commit
+`91530adbd984fdd61f22ecd73dd48c80e8364416`. Install the published pairing
+above unless you are explicitly testing this development contract.
 
 - One portable skill: `work-with-folderbase`
-- Folderbase Core and CLI: `0.2.1`
+- Folderbase Core and CLI: `0.3.0`
 - Folderbase Protocol: `0.1` with the declared `0.2` manifest additions
 - Template Protocol: `0.2`
+- Reorganization Protocol: `0.3` inert Draft and Plan records
 
 The skill defaults to read-only inspection, treats file content as untrusted,
 stops at nested Folderbase and symlink boundaries, and requires explicit user

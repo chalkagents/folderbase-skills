@@ -26,6 +26,7 @@ for root_file in \
   docs/test-evidence/core-v030-contract-red.md \
   docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
+  docs/test-evidence/skills-v030-publication.md \
   docs/test-evidence/skills-v030-release-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
@@ -63,16 +64,19 @@ grep -F -q -- 'current Folderbase Skills release is `v0.3.0`' \
   <<<"$normalized_readme_text"
 grep -F -q -- "$release_source" "$repository_root/README.md"
 grep -F -q -- "$release_core_commit" "$repository_root/README.md"
-grep -F -q -- \
+if grep -F -q -- \
   'becomes installable only after this reviewed head is merged and tagged' \
-  <<<"$normalized_readme_text"
+  <<<"$normalized_readme_text"; then
+  printf '%s\n' 'README still carries the during-release availability warning.' >&2
+  exit 1
+fi
 grep -F -x -q -- '## Contract' "$repository_root/README.md"
 if grep -F -x -q -- '## Development contract' "$repository_root/README.md"; then
   printf '%s\n' 'README still describes the release pairing as developmental.' >&2
   exit 1
 fi
 
-published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.2.1'
+published_baseline_source='https://github.com/chalkagents/folderbase-skills/tree/v0.3.0'
 grep -F -q -- "$published_baseline_source" "$repository_root/tests/distribution.sh"
 grep -F -q -- \
   'Local and version-pinned published Folderbase skill installs are valid.' \
@@ -252,6 +256,21 @@ for publication_claim in \
   'a41b2bc5d83dad6df2a2a3ceca0618980b9f54db4063a82d0133c5239c7b2821'
 do
   grep -F -q -- "$publication_claim" "$publication_evidence"
+done
+publication_v030_evidence="$repository_root/docs/test-evidence/skills-v030-publication.md"
+for publication_claim in \
+  'ACCEPTANCE_V030_PUBLICATION_RED_EXIT=1' \
+  'DISTRIBUTION_V030_PUBLICATION_RED_EXIT=1' \
+  'DISTRIBUTION_V030_PUBLICATION_GREEN_EXIT=0' \
+  'b878e9599624b2b4d225b0c69d693f67f5268a9e' \
+  '01a97dc6b8b86b9a0f2d3f2bc9f266395718d587' \
+  '30459523188' \
+  '30459657581' \
+  '0e3e8035100107c6dc1ff7aeb0fb968c058b7f9d7654f781323b0381b63b3e0f' \
+  '35718d726a76346fd1177636caaa6a61af9a6d20aa8cdf55a0273e05656a34ae' \
+  '7aa27908fe0da69a1da0a7795de046227a186b519cc3c0b269be416202396f6c'
+do
+  grep -F -q -- "$publication_claim" "$publication_v030_evidence"
 done
 
 for local_install_contract in \

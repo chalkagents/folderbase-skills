@@ -75,11 +75,16 @@ bash scripts/check-ci-policy.sh
 npm ci --ignore-scripts
 bash tests/distribution.sh
 bash tests/core-contract.sh
+FOLDERBASE_CORE_CONTRACT=v0.5-read-only \
+FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b \
+  bash tests/core-contract.sh
 ```
 
 CI also validates the Agent Skills format, installs the skill into isolated
 Codex, Claude Code, Cursor, Hermes Agent, and OpenClaw projects, and runs the
-workflow against the exact Folderbase Core commit declared above.
+unchanged mutation workflow against exact Core v0.3.0 plus the read-only
+discovery workflow against exact Core v0.5.0-rc.1. The v0.3 public install
+default remains unchanged.
 
 ## Security
 

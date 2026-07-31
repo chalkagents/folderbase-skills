@@ -24,6 +24,7 @@ for root_file in \
   docs/test-evidence/core-v02-contract-red.md \
   docs/test-evidence/core-v021-contract-red.md \
   docs/test-evidence/core-v030-contract-red.md \
+  docs/test-evidence/core-v05-skill-compatibility.md \
   docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v030-publication.md \
@@ -39,6 +40,7 @@ for root_file in \
   tests/acceptance.sh \
   tests/core-contract.sh \
   tests/distribution.sh \
+  tests/fixtures/core-v05-manifest-only.json \
   tests/fixtures/adversarial/untrusted-document.md \
   tests/fixtures/template-cases.tsv
 do
@@ -134,6 +136,89 @@ normalized_skill_text=$(
   tr '\n' ' ' <"$skill_file" |
     tr -s '[:space:]' ' '
 )
+normalized_protocol_reference_text=$(
+  tr '\n' ' ' <"$protocol_reference" |
+    tr -s '[:space:]' ' '
+)
+for rejected_guidance in \
+  'only when both `FOLDERBASE.md` and `.folderbase/manifest.json` exist' \
+  'Read `FOLDERBASE.md` first'
+do
+  if grep -F -q -- "$rejected_guidance" <<<"$normalized_skill_text"; then
+    printf 'Skill retains obsolete Core 0.3 boundary guidance: %s\n' \
+      "$rejected_guidance" >&2
+    exit 1
+  fi
+done
+
+for profile_boundary_claim in \
+  'exact v0.3.0 mutation profile' \
+  'requires both `FOLDERBASE.md` and `.folderbase/manifest.json`' \
+  'exact v0.5.0-rc.1 read-only discovery profile' \
+  '`.folderbase/manifest.json` is the sole Folderbase boundary marker'
+do
+  grep -F -q -- "$profile_boundary_claim" <<<"$normalized_skill_text"
+  grep -F -q -- "$profile_boundary_claim" \
+    <<<"$normalized_protocol_reference_text"
+done
+
+for core_v05_discovery_claim in \
+  '`folderbase 0.3.0`' \
+  'requires both `FOLDERBASE.md` and `.folderbase/manifest.json`' \
+  '`folderbase 0.5.0-rc.1`' \
+  '`.folderbase/manifest.json` is the sole Folderbase boundary marker' \
+  'A manifest-only Folderbase is valid' \
+  '`FOLDERBASE.md` and `.folderbaseignore` are optional ordinary files' \
+  'Neither optional file is authoritative' \
+  '`missing_manifest` is an ordinary unmanaged inspection state' \
+  'List metadata before reading file content' \
+  'Run `folderbase workspace list` first' \
+  '`folderbase attest` only after validation confirms a manifest boundary' \
+  'Never initialize without explicit user intent'
+do
+  grep -F -q -- "$core_v05_discovery_claim" <<<"$normalized_skill_text"
+done
+
+grep -F -q -- \
+  'core_v05_manifest_fixture="$test_directory/fixtures/core-v05-manifest-only.json"' \
+  "$repository_root/tests/core-contract.sh"
+core_v05_fixture_sha256=200abe55ae436695c2a0cb8b57e3c942733db5b85770d396261cf6618f581e92
+grep -F -q -- "$core_v05_fixture_sha256" \
+  "$repository_root/tests/core-contract.sh"
+grep -F -q -- "$core_v05_fixture_sha256" \
+  "$repository_root/docs/test-evidence/core-v05-skill-compatibility.md"
+grep -F -q -- \
+  'cargo install --git https://github.com/chalkagents/folderbase.git' \
+  "$repository_root/docs/test-evidence/core-v05-skill-compatibility.md"
+core_v05_override_error=$(mktemp)
+if FOLDERBASE_CORE_CONTRACT=v0.5-read-only \
+  FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b \
+  FOLDERBASE_CORE_CLI=/bin/true \
+  bash "$repository_root/tests/core-contract.sh" \
+  > /dev/null \
+  2>"$core_v05_override_error"
+then
+  printf '%s\n' \
+    'Core 0.5 exact-source proof unexpectedly accepted a CLI override.' >&2
+  exit 1
+fi
+grep -F -q -- \
+  'Core 0.5 exact-source proof does not accept executable overrides.' \
+  "$core_v05_override_error"
+rm "$core_v05_override_error"
+for core_v05_ci_claim in \
+  'FOLDERBASE_CORE_CONTRACT: v0.5-read-only' \
+  'FOLDERBASE_CORE_REF: 45de7804bb4e57224e5b9495e4394441ce652f0b'
+do
+  grep -F -q -- "$core_v05_ci_claim" "$repository_root/.github/workflows/ci.yml"
+done
+grep -F -q -- \
+  'FOLDERBASE_CORE_CONTRACT=v0.5-read-only' \
+  "$repository_root/README.md"
+grep -F -q -- \
+  'FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b' \
+  "$repository_root/README.md"
+
 for required_text in \
   'references/protocol-surface.md' \
   'FOLDERBASE.md' \
@@ -209,6 +294,20 @@ for required_text in \
   '0.3.0'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
+done
+
+for core_v05_candidate_claim in \
+  'v0.5.0-rc.1' \
+  '45de7804bb4e57224e5b9495e4394441ce652f0b' \
+  'folderbase 0.5.0-rc.1' \
+  'read-only discovery candidate' \
+  'sole Folderbase boundary marker' \
+  'manifest-only Folderbase is valid' \
+  'optional ordinary non-authoritative files' \
+  'missing_manifest' \
+  'metadata before content'
+do
+  grep -F -q -- "$core_v05_candidate_claim" "$protocol_reference"
 done
 
 while IFS=$'\t' read -r template_selector _template_kind _mode \

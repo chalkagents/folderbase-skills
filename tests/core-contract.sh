@@ -6,10 +6,231 @@ test_directory=$(
   pwd
 )
 template_cases_fixture="$test_directory/fixtures/template-cases.tsv"
+# Captured from exact Core 45de7804bb4e57224e5b9495e4394441ce652f0b.
+core_v05_manifest_fixture="$test_directory/fixtures/core-v05-manifest-only.json"
+core_v05_manifest_sha256=200abe55ae436695c2a0cb8b57e3c942733db5b85770d396261cf6618f581e92
 temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
 core_repository=https://github.com/chalkagents/folderbase.git
+core_contract=${FOLDERBASE_CORE_CONTRACT:-v0.3}
+core_v05_candidate_ref=45de7804bb4e57224e5b9495e4394441ce652f0b
+
+run_core_v05_read_only_contract() {
+  local configured_ref=${FOLDERBASE_CORE_REF:-$core_v05_candidate_ref}
+  local folderbase_real
+
+  if [[ "$configured_ref" != "$core_v05_candidate_ref" ]]; then
+    printf 'Core 0.5 candidate proof requires exact commit %s.\n' \
+      "$core_v05_candidate_ref" >&2
+    exit 1
+  fi
+
+  if [[ -n "${FOLDERBASE_CORE_CLI:-}" ]]; then
+    printf '%s\n' \
+      'Core 0.5 exact-source proof does not accept executable overrides.' >&2
+    exit 1
+  fi
+
+  local install_root="$temporary_root/core-v05-install"
+  cargo install \
+    --git "$core_repository" \
+    --rev "$configured_ref" \
+    --locked \
+    --root "$install_root" \
+    folderbase-cli
+  folderbase_real="$install_root/bin/folderbase"
+  test -x "$folderbase_real"
+
+  local invocation_log="$temporary_root/core-v05-invocations.jsonl"
+  local folderbase="$temporary_root/core-v05-folderbase-wrapper"
+  cat >"$folderbase" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+python3 - "$FOLDERBASE_CORE_V05_INVOCATION_LOG" "$@" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "a", encoding="utf-8") as output:
+    output.write(json.dumps(sys.argv[2:], separators=(",", ":")) + "\n")
+PY
+exec "$FOLDERBASE_CORE_V05_REAL_CLI" "$@"
+SH
+  chmod 700 "$folderbase"
+  export FOLDERBASE_CORE_V05_INVOCATION_LOG="$invocation_log"
+  export FOLDERBASE_CORE_V05_REAL_CLI="$folderbase_real"
+  test "$("$folderbase" --version)" = 'folderbase 0.5.0-rc.1'
+
+  python3 - "$core_v05_manifest_fixture" "$core_v05_manifest_sha256" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+
+actual = hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest()
+assert actual == sys.argv[2], (actual, sys.argv[2])
+PY
+
+  local ordinary_root="$temporary_root/ordinary-folder"
+  mkdir -p "$ordinary_root/docs"
+  printf '%s\n' 'ordinary text' \
+    >"$ordinary_root/docs/note.md"
+  python3 - "$ordinary_root/sparse-archive.bin" <<'PY'
+import os
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+with path.open("wb") as output:
+    output.truncate(10 * 1024**3)
+metadata = os.stat(path)
+assert metadata.st_size == 10_737_418_240
+assert metadata.st_blocks * 512 < metadata.st_size
+PY
+
+  "$folderbase" workspace list "$ordinary_root" --json \
+    >"$temporary_root/ordinary-list.json"
+  python3 - \
+    "$temporary_root/ordinary-list.json" \
+    "$ordinary_root" <<'PY'
+import json
+import os
+import sys
+
+listing = json.load(open(sys.argv[1], encoding="utf-8"))
+assert os.path.realpath(listing["root"]) == os.path.realpath(sys.argv[2])
+by_path = {entry["path"]: entry for entry in listing["entries"]}
+assert by_path["sparse-archive.bin"] == {
+    "path": "sparse-archive.bin",
+    "name": "sparse-archive.bin",
+    "kind": "file",
+    "bytes": 10_737_418_240,
+    "editable": False,
+    "reconstructable": False,
+}
+assert by_path["docs/note.md"]["bytes"] == 14
+assert by_path["docs/note.md"]["editable"] is True
+PY
+
+  if "$folderbase" validate "$ordinary_root" --json \
+    >"$temporary_root/ordinary-validate.json" \
+    2>"$temporary_root/ordinary-validate.err"
+  then
+    printf '%s\n' 'An unmanaged ordinary folder unexpectedly validated.' >&2
+    exit 1
+  fi
+  test ! -s "$temporary_root/ordinary-validate.err"
+  python3 - "$temporary_root/ordinary-validate.json" "$ordinary_root" <<'PY'
+import json
+import os
+import sys
+
+validation = json.load(open(sys.argv[1], encoding="utf-8"))
+assert os.path.realpath(validation["root"]) == os.path.realpath(sys.argv[2])
+assert validation["level"] == "shallow"
+assert validation["valid"] is False
+assert validation["findings"] == [{
+    "code": "missing_manifest",
+    "severity": "error",
+    "path": ".folderbase/manifest.json",
+    "message": "A folderbase root must contain .folderbase/manifest.json.",
+}]
+PY
+  test ! -e "$ordinary_root/.folderbase"
+  test ! -e "$ordinary_root/FOLDERBASE.md"
+  test ! -e "$ordinary_root/.folderbaseignore"
+
+  local manifest_only_root="$temporary_root/manifest-only-folderbase"
+  mkdir -p "$manifest_only_root/.folderbase"
+  cp "$core_v05_manifest_fixture" \
+    "$manifest_only_root/.folderbase/manifest.json"
+  test -f "$manifest_only_root/.folderbase/manifest.json"
+  test ! -e "$manifest_only_root/FOLDERBASE.md"
+  test ! -e "$manifest_only_root/.folderbaseignore"
+  test ! -e "$manifest_only_root/.folderbase/summary.md"
+  test ! -e "$manifest_only_root/.folderbase/questions.jsonl"
+
+  "$folderbase" validate "$manifest_only_root" --json \
+    >"$temporary_root/manifest-only-validate.json"
+  "$folderbase" attest "$manifest_only_root" --json \
+    >"$temporary_root/manifest-only-attest.json"
+  python3 - \
+    "$temporary_root/manifest-only-validate.json" \
+    "$temporary_root/manifest-only-attest.json" \
+    "$manifest_only_root" <<'PY'
+import json
+import os
+import re
+import sys
+
+validation = json.load(open(sys.argv[1], encoding="utf-8"))
+attestation = json.load(open(sys.argv[2], encoding="utf-8"))
+assert os.path.realpath(validation["root"]) == os.path.realpath(sys.argv[3])
+assert validation == {
+    "root": validation["root"],
+    "level": "shallow",
+    "valid": True,
+    "findings": [],
+}
+assert os.path.realpath(attestation["root"]) == os.path.realpath(sys.argv[3])
+assert set(attestation) == {
+    "root",
+    "folderbase_id",
+    "protocol_version",
+    "manifest_sha256",
+    "root_instance_sha256",
+}
+assert attestation["folderbase_id"].startswith("folderbase_")
+assert attestation["protocol_version"] == "0.5.0"
+assert re.fullmatch(r"[0-9a-f]{64}", attestation["manifest_sha256"])
+assert re.fullmatch(r"[0-9a-f]{64}", attestation["root_instance_sha256"])
+PY
+
+  python3 - \
+    "$invocation_log" \
+    "$ordinary_root" \
+    "$manifest_only_root" \
+    "$core_v05_manifest_sha256" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    invocations = [json.loads(line) for line in source]
+
+assert invocations == [
+    ["--version"],
+    ["workspace", "list", sys.argv[2], "--json"],
+    ["validate", sys.argv[2], "--json"],
+    ["validate", sys.argv[3], "--json"],
+    ["attest", sys.argv[3], "--json"],
+], invocations
+actual_manifest_sha256 = hashlib.sha256(
+    Path(sys.argv[3], ".folderbase", "manifest.json").read_bytes()
+).hexdigest()
+assert actual_manifest_sha256 == sys.argv[4]
+PY
+
+  printf '%s\n' \
+    'Folderbase skill and exact Core 0.5 candidate read-only contract are compatible.'
+}
+
+if [[ "$core_contract" = v0.5-read-only ]]; then
+  run_core_v05_read_only_contract
+  exit 0
+fi
+if [[ "$core_contract" != v0.3 ]]; then
+  printf 'Unknown FOLDERBASE_CORE_CONTRACT mode: %s\n' "$core_contract" >&2
+  exit 1
+fi
+if [[ -n "${FOLDERBASE_CORE_CLI:-}" ]]; then
+  printf '%s\n' \
+    'FOLDERBASE_CORE_CLI is unsupported by exact-source Core contracts.' \
+    >&2
+  exit 1
+fi
+
 core_ref=${FOLDERBASE_CORE_REF:-91530adbd984fdd61f22ecd73dd48c80e8364416}
 
 read_plan_digest() {
@@ -123,6 +344,85 @@ done
 grep -Fq \
   'person, organization, engagement, project, customer, temporary, custom' \
   "$temporary_root/init-help.txt"
+
+# Core v0.3 identifies an existing Folderbase only when both v0.3 markers
+# are present. Keep this separate from the v0.5 manifest-only discovery proof.
+v03_boundary_root="$temporary_root/v03-boundary"
+mkdir -p "$v03_boundary_root"
+v03_boundary_arguments=(
+  "$v03_boundary_root"
+  --name 'Core v0.3 boundary contract'
+  --kind project
+  --no-agent-adapters
+  --json
+)
+"$folderbase" init \
+  "${v03_boundary_arguments[@]:0:1}" \
+  --dry-run \
+  "${v03_boundary_arguments[@]:1}" \
+  >"$temporary_root/v03-boundary-preview.json"
+v03_boundary_digest=$(
+  read_plan_digest "$temporary_root/v03-boundary-preview.json"
+)
+"$folderbase" init \
+  "${v03_boundary_arguments[@]:0:1}" \
+  --expected-plan-digest "$v03_boundary_digest" \
+  "${v03_boundary_arguments[@]:1}" \
+  >"$temporary_root/v03-boundary-init.json"
+test -f "$v03_boundary_root/FOLDERBASE.md"
+test -f "$v03_boundary_root/.folderbase/manifest.json"
+"$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-valid.json"
+
+mv \
+  "$v03_boundary_root/FOLDERBASE.md" \
+  "$temporary_root/v03-boundary-entry.saved"
+if "$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-missing-entry.json"
+then
+  printf '%s\n' \
+    'Core v0.3 unexpectedly accepted a boundary without FOLDERBASE.md.' >&2
+  exit 1
+fi
+python3 - "$temporary_root/v03-boundary-missing-entry.json" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+assert report["valid"] is False
+assert "missing_folderbase_entry" in {
+    finding["code"] for finding in report["findings"]
+}
+PY
+mv \
+  "$temporary_root/v03-boundary-entry.saved" \
+  "$v03_boundary_root/FOLDERBASE.md"
+
+mv \
+  "$v03_boundary_root/.folderbase/manifest.json" \
+  "$temporary_root/v03-boundary-manifest.saved"
+if "$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-missing-manifest.json"
+then
+  printf '%s\n' \
+    'Core v0.3 unexpectedly accepted a boundary without its manifest.' >&2
+  exit 1
+fi
+python3 - "$temporary_root/v03-boundary-missing-manifest.json" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+assert report["valid"] is False
+assert "missing_manifest" in {
+    finding["code"] for finding in report["findings"]
+}
+PY
+mv \
+  "$temporary_root/v03-boundary-manifest.saved" \
+  "$v03_boundary_root/.folderbase/manifest.json"
+"$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-restored.json"
 
 while IFS=$'\t' read -r \
   template_selector \

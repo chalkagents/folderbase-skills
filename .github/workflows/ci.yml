@@ -46,5 +46,11 @@ jobs:
       - name: Test discovery and agent installations
         run: tests/distribution.sh
 
-      - name: Test the immutable Folderbase Core contract
+      - name: Test the immutable Folderbase Core v0.3 mutation contract
+        run: tests/core-contract.sh
+
+      - name: Test the exact Core v0.5 read-only discovery candidate
+        env:
+          FOLDERBASE_CORE_CONTRACT: v0.5-read-only
+          FOLDERBASE_CORE_REF: 45de7804bb4e57224e5b9495e4394441ce652f0b
         run: tests/core-contract.sh

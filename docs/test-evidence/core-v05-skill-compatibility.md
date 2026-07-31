@@ -19,7 +19,38 @@ their canonical wording:
 
 ```text
 CORE_V05_PROFILE_WORDING_RED_EXIT=1
+CORE_V05_FIXTURE_PROVENANCE_RED_EXIT=1
 ```
+
+## Fixture provenance
+
+The checked-in manifest was captured from the CLI installed directly from the
+exact candidate commit with this procedure:
+
+```sh
+tool_root=$(mktemp -d)
+fixture_root=$(mktemp -d)/folderbase-v05-manifest.raD9cc
+mkdir -p "$fixture_root"
+cargo install --git https://github.com/chalkagents/folderbase.git \
+  --rev 45de7804bb4e57224e5b9495e4394441ce652f0b \
+  --locked \
+  --root "$tool_root" \
+  folderbase-cli
+"$tool_root/bin/folderbase" init "$fixture_root" --json
+cp "$fixture_root/.folderbase/manifest.json" \
+  tests/fixtures/core-v05-manifest-only.json
+shasum -a 256 tests/fixtures/core-v05-manifest-only.json
+```
+
+The ID, generated name, and timestamp are intentionally frozen captured
+values, not deterministic regeneration inputs. The immutable fixture digest
+is:
+
+```text
+200abe55ae436695c2a0cb8b57e3c942733db5b85770d396261cf6618f581e92
+```
+
+The contract recomputes and asserts this digest before using the fixture.
 
 ## Green contract
 
@@ -35,6 +66,11 @@ The reviewed workflow now:
 - validates a checked-in, Core-generated manifest fixture without invoking
   candidate mutation; and
 - preserves metadata-first inspection of a sparse 10 GiB file.
+
+The v0.5 test installs its CLI from the exact commit itself and rejects a
+caller-supplied executable override. A recording wrapper observes every CLI
+invocation and asserts the complete sequence, proving the candidate path uses
+only version, list, validate, and conditional attest operations in that order.
 
 The v0.3 contract dynamically removes each required marker in turn and proves
 the typed `missing_folderbase_entry` and `missing_manifest` findings before

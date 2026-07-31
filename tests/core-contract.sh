@@ -8,6 +8,7 @@ test_directory=$(
 template_cases_fixture="$test_directory/fixtures/template-cases.tsv"
 # Captured from exact Core 45de7804bb4e57224e5b9495e4394441ce652f0b.
 core_v05_manifest_fixture="$test_directory/fixtures/core-v05-manifest-only.json"
+core_v05_manifest_sha256=200abe55ae436695c2a0cb8b57e3c942733db5b85770d396261cf6618f581e92
 temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
@@ -17,7 +18,7 @@ core_v05_candidate_ref=45de7804bb4e57224e5b9495e4394441ce652f0b
 
 run_core_v05_read_only_contract() {
   local configured_ref=${FOLDERBASE_CORE_REF:-$core_v05_candidate_ref}
-  local folderbase
+  local folderbase_real
 
   if [[ "$configured_ref" != "$core_v05_candidate_ref" ]]; then
     printf 'Core 0.5 candidate proof requires exact commit %s.\n' \
@@ -26,26 +27,49 @@ run_core_v05_read_only_contract() {
   fi
 
   if [[ -n "${FOLDERBASE_CORE_CLI:-}" ]]; then
-    if [[ -z "${FOLDERBASE_CORE_REF:-}" ]]; then
-      printf '%s\n' \
-        'FOLDERBASE_CORE_CLI requires an explicit FOLDERBASE_CORE_REF identity.' \
-        >&2
-      exit 1
-    fi
-    folderbase=$FOLDERBASE_CORE_CLI
-  else
-    local install_root="$temporary_root/core-v05-install"
-    cargo install \
-      --git "$core_repository" \
-      --rev "$configured_ref" \
-      --locked \
-      --root "$install_root" \
-      folderbase-cli
-    folderbase="$install_root/bin/folderbase"
+    printf '%s\n' \
+      'Core 0.5 exact-source proof does not accept executable overrides.' >&2
+    exit 1
   fi
 
-  test -x "$folderbase"
+  local install_root="$temporary_root/core-v05-install"
+  cargo install \
+    --git "$core_repository" \
+    --rev "$configured_ref" \
+    --locked \
+    --root "$install_root" \
+    folderbase-cli
+  folderbase_real="$install_root/bin/folderbase"
+  test -x "$folderbase_real"
+
+  local invocation_log="$temporary_root/core-v05-invocations.jsonl"
+  local folderbase="$temporary_root/core-v05-folderbase-wrapper"
+  cat >"$folderbase" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+python3 - "$FOLDERBASE_CORE_V05_INVOCATION_LOG" "$@" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], "a", encoding="utf-8") as output:
+    output.write(json.dumps(sys.argv[2:], separators=(",", ":")) + "\n")
+PY
+exec "$FOLDERBASE_CORE_V05_REAL_CLI" "$@"
+SH
+  chmod 700 "$folderbase"
+  export FOLDERBASE_CORE_V05_INVOCATION_LOG="$invocation_log"
+  export FOLDERBASE_CORE_V05_REAL_CLI="$folderbase_real"
   test "$("$folderbase" --version)" = 'folderbase 0.5.0-rc.1'
+
+  python3 - "$core_v05_manifest_fixture" "$core_v05_manifest_sha256" <<'PY'
+import hashlib
+from pathlib import Path
+import sys
+
+actual = hashlib.sha256(Path(sys.argv[1]).read_bytes()).hexdigest()
+assert actual == sys.argv[2], (actual, sys.argv[2])
+PY
 
   local ordinary_root="$temporary_root/ordinary-folder"
   mkdir -p "$ordinary_root/docs"
@@ -160,6 +184,32 @@ assert attestation["folderbase_id"].startswith("folderbase_")
 assert attestation["protocol_version"] == "0.5.0"
 assert re.fullmatch(r"[0-9a-f]{64}", attestation["manifest_sha256"])
 assert re.fullmatch(r"[0-9a-f]{64}", attestation["root_instance_sha256"])
+PY
+
+  python3 - \
+    "$invocation_log" \
+    "$ordinary_root" \
+    "$manifest_only_root" \
+    "$core_v05_manifest_sha256" <<'PY'
+import hashlib
+import json
+from pathlib import Path
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as source:
+    invocations = [json.loads(line) for line in source]
+
+assert invocations == [
+    ["--version"],
+    ["workspace", "list", sys.argv[2], "--json"],
+    ["validate", sys.argv[2], "--json"],
+    ["validate", sys.argv[3], "--json"],
+    ["attest", sys.argv[3], "--json"],
+], invocations
+actual_manifest_sha256 = hashlib.sha256(
+    Path(sys.argv[3], ".folderbase", "manifest.json").read_bytes()
+).hexdigest()
+assert actual_manifest_sha256 == sys.argv[4]
 PY
 
   printf '%s\n' \

@@ -179,35 +179,33 @@ do
   grep -F -q -- "$core_v05_discovery_claim" <<<"$normalized_skill_text"
 done
 
-python3 - "$skill_file" <<'PY'
-import pathlib
-import sys
-
-skill = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
-listing = skill.index("folderbase workspace list /path/to/root --json")
-validation = skill.index("folderbase validate /path/to/root --json")
-attestation = skill.index("folderbase attest /path/to/root --json")
-assert listing < validation < attestation, (
-    "ordinary-folder discovery must list first, validate second, and attest last"
-)
-PY
-
-core_v05_contract=$(
-  awk '
-    /^run_core_v05_read_only_contract\(\) \{/ { capture = 1 }
-    /^if \[\[ "\$core_contract" = v0\.5-read-only \]\]/ { exit }
-    capture { print }
-  ' "$repository_root/tests/core-contract.sh"
-)
-if grep -F -q -- '"$folderbase" init' <<<"$core_v05_contract"; then
-  printf '%s\n' \
-    'Core 0.5 read-only proof must not use candidate mutation to create its fixture.' \
-    >&2
-  exit 1
-fi
 grep -F -q -- \
   'core_v05_manifest_fixture="$test_directory/fixtures/core-v05-manifest-only.json"' \
   "$repository_root/tests/core-contract.sh"
+core_v05_fixture_sha256=200abe55ae436695c2a0cb8b57e3c942733db5b85770d396261cf6618f581e92
+grep -F -q -- "$core_v05_fixture_sha256" \
+  "$repository_root/tests/core-contract.sh"
+grep -F -q -- "$core_v05_fixture_sha256" \
+  "$repository_root/docs/test-evidence/core-v05-skill-compatibility.md"
+grep -F -q -- \
+  'cargo install --git https://github.com/chalkagents/folderbase.git' \
+  "$repository_root/docs/test-evidence/core-v05-skill-compatibility.md"
+core_v05_override_error=$(mktemp)
+if FOLDERBASE_CORE_CONTRACT=v0.5-read-only \
+  FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b \
+  FOLDERBASE_CORE_CLI=/bin/true \
+  bash "$repository_root/tests/core-contract.sh" \
+  > /dev/null \
+  2>"$core_v05_override_error"
+then
+  printf '%s\n' \
+    'Core 0.5 exact-source proof unexpectedly accepted a CLI override.' >&2
+  exit 1
+fi
+grep -F -q -- \
+  'Core 0.5 exact-source proof does not accept executable overrides.' \
+  "$core_v05_override_error"
+rm "$core_v05_override_error"
 for core_v05_ci_claim in \
   'FOLDERBASE_CORE_CONTRACT: v0.5-read-only' \
   'FOLDERBASE_CORE_REF: 45de7804bb4e57224e5b9495e4394441ce652f0b'

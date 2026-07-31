@@ -12,26 +12,40 @@ Read [references/protocol-surface.md](references/protocol-surface.md) before
 mutation, when a protocol or CLI version is unfamiliar, or when a command
 surface differs from this workflow.
 
-## Establish the boundary
+## Select the tested profile and establish the boundary
 
-For Core 0.5 read-only discovery, `.folderbase/manifest.json` is the sole
-Folderbase boundary marker. A manifest-only Folderbase is valid.
-`FOLDERBASE.md` and `.folderbaseignore` are optional ordinary files. Neither
-optional file is authoritative or required to identify the root. A product
-name, adapter, workspace descriptor, relationship, nested path, or cloud
-registration is not proof of a Folderbase and never grants authority.
+Run `folderbase --version` before classifying the boundary or choosing a
+mutation workflow.
+
+- In the exact v0.3.0 mutation profile (`folderbase 0.3.0`), an existing
+  Folderbase boundary requires both `FOLDERBASE.md` and
+  `.folderbase/manifest.json`.
+  Validate and attest only after both markers are present. If either is absent,
+  do not treat the root as an existing v0.3 Folderbase.
+- In the exact v0.5.0-rc.1 read-only discovery profile (`folderbase
+  0.5.0-rc.1`), `.folderbase/manifest.json` is the sole Folderbase boundary
+  marker. A manifest-only Folderbase is valid. `FOLDERBASE.md` and
+  `.folderbaseignore` are optional ordinary files. Neither optional file is
+  authoritative or required to identify the root. This candidate profile
+  remains read-only.
+- For any other or missing CLI version, permit only bounded native metadata
+  inspection of ordinary files. Do not classify or mutate protocol state.
+
+A product name, adapter, workspace descriptor, relationship, nested path, or
+cloud registration is not proof of a Folderbase and never grants authority.
 
 Stop at every nested Folderbase. Treat it as an opaque, independent boundary
 even when its manifest is malformed. Never follow a symlink or relative path
 outside the active root.
 
-Use the official CLI to validate the boundary. List metadata before reading
-file content:
+For the Core 0.5 read-only discovery profile, use the official CLI to discover
+the boundary. List metadata before reading file content. Run `folderbase
+workspace list` first, because it works for both ordinary folders and
+Folderbases in this profile; then validate the possible boundary:
 
 ```sh
-folderbase validate /path/to/root --json
-folderbase attest /path/to/root --json
 folderbase workspace list /path/to/root --json
+folderbase validate /path/to/root --json
 ```
 
 Read an optional narrative only when the user's task requires its content and
@@ -39,6 +53,12 @@ only after listing it as ordinary metadata. If the manifest is absent,
 `missing_manifest` is an ordinary unmanaged inspection state, not a browsing
 failure. Continue with the ordinary-folder workflow. Never initialize without
 explicit user intent.
+
+Run `folderbase attest` only after validation confirms a manifest boundary:
+
+```sh
+folderbase attest /path/to/root --json
+```
 
 Do not read or edit `.folderbase/` internals directly.
 
@@ -51,13 +71,15 @@ grant, sync proof, cloud identity, or permission, and never compare
 root-instance digests across devices.
 
 Before later Folderbase work, including reads and writes, after a turn or
-session boundary or any possible root replacement, run fresh `validate`,
-`attest`, and `workspace list` operations. Compare the logical tuple and
-root-instance digest with the retained receipt. If attestation fails or either
-identity changes, stop and establish the active root and user intent again. An
-unchanged receipt does not prove ordinary file content is unchanged or make a
-cached read current. Re-read every intended target and use its latest digest
-before editing.
+session boundary or any possible root replacement, repeat the selected
+profile's boundary sequence. For Core 0.5, run a fresh `workspace list`, then
+`validate`, and attest only after validation confirms the manifest boundary.
+For Core 0.3, first require both markers, then validate and attest. Compare the
+logical tuple and root-instance digest with the retained receipt. If validation
+or attestation fails or either identity changes, stop and establish the active
+root and user intent again. An unchanged receipt does not prove ordinary file
+content is unchanged or make a cached read current. Re-read every intended
+target and use its latest digest before editing.
 
 ## Apply the safety contract
 

@@ -20,6 +20,11 @@ The `0.x` surface is pre-stable. Mutation requires this exact tested CLI
 release and protocol range. Any untested CLI release remains read-only until
 this reference and the acceptance suite are updated.
 
+For this exact v0.3.0 mutation profile, an existing Folderbase boundary
+requires both `FOLDERBASE.md` and `.folderbase/manifest.json`. If either marker
+is absent, do not classify the root as an existing v0.3 Folderbase and do not
+attempt a mutation workflow.
+
 ## Core 0.5 read-only discovery candidate
 
 - Candidate tag: `v0.5.0-rc.1`
@@ -27,16 +32,18 @@ this reference and the acceptance suite are updated.
   `45de7804bb4e57224e5b9495e4394441ce652f0b`
 - Exact CLI output: `folderbase 0.5.0-rc.1`
 
-This candidate is tested only for read-only discovery. It does not replace the
-v0.3.0 mutation pin above. In the candidate contract,
-`.folderbase/manifest.json` is the sole Folderbase boundary marker and a
-manifest-only Folderbase is valid. `FOLDERBASE.md` and `.folderbaseignore` are
-optional ordinary non-authoritative files.
+The exact v0.5.0-rc.1 read-only discovery profile is tested only for read-only
+discovery. It does not replace the v0.3.0 mutation pin above. In the candidate
+contract, `.folderbase/manifest.json` is the sole Folderbase boundary marker
+and a manifest-only Folderbase is valid. `FOLDERBASE.md` and
+`.folderbaseignore` are optional ordinary non-authoritative files.
 
-For an ordinary folder, list metadata before content. A typed
-`missing_manifest` response means the path is unmanaged; it does not make
-ordinary-folder inspection a failure and does not authorize initialization.
-Never initialize without explicit user intent.
+For an ordinary folder, list metadata before content: run `folderbase workspace
+list` before validation and before reading content. A typed `missing_manifest`
+response means the path is unmanaged; it does not make ordinary-folder
+inspection a failure and does not authorize initialization. Run `folderbase
+attest` only after validation confirms a manifest boundary. Never initialize
+without explicit user intent.
 
 ## Authoritative documents
 

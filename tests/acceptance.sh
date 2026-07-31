@@ -39,6 +39,7 @@ for root_file in \
   tests/acceptance.sh \
   tests/core-contract.sh \
   tests/distribution.sh \
+  tests/fixtures/core-v05-manifest-only.json \
   tests/fixtures/adversarial/untrusted-document.md \
   tests/fixtures/template-cases.tsv
 do
@@ -134,6 +135,10 @@ normalized_skill_text=$(
   tr '\n' ' ' <"$skill_file" |
     tr -s '[:space:]' ' '
 )
+normalized_protocol_reference_text=$(
+  tr '\n' ' ' <"$protocol_reference" |
+    tr -s '[:space:]' ' '
+)
 for rejected_guidance in \
   'only when both `FOLDERBASE.md` and `.folderbase/manifest.json` exist' \
   'Read `FOLDERBASE.md` first'
@@ -145,17 +150,75 @@ do
   fi
 done
 
+for profile_boundary_claim in \
+  'exact v0.3.0 mutation profile' \
+  'requires both `FOLDERBASE.md` and `.folderbase/manifest.json`' \
+  'exact v0.5.0-rc.1 read-only discovery profile' \
+  '`.folderbase/manifest.json` is the sole Folderbase boundary marker'
+do
+  grep -F -q -- "$profile_boundary_claim" <<<"$normalized_skill_text"
+  grep -F -q -- "$profile_boundary_claim" \
+    <<<"$normalized_protocol_reference_text"
+done
+
 for core_v05_discovery_claim in \
+  '`folderbase 0.3.0`' \
+  'requires both `FOLDERBASE.md` and `.folderbase/manifest.json`' \
+  '`folderbase 0.5.0-rc.1`' \
   '`.folderbase/manifest.json` is the sole Folderbase boundary marker' \
   'A manifest-only Folderbase is valid' \
   '`FOLDERBASE.md` and `.folderbaseignore` are optional ordinary files' \
   'Neither optional file is authoritative' \
   '`missing_manifest` is an ordinary unmanaged inspection state' \
   'List metadata before reading file content' \
+  'Run `folderbase workspace list` first' \
+  '`folderbase attest` only after validation confirms a manifest boundary' \
   'Never initialize without explicit user intent'
 do
   grep -F -q -- "$core_v05_discovery_claim" <<<"$normalized_skill_text"
 done
+
+python3 - "$skill_file" <<'PY'
+import pathlib
+import sys
+
+skill = pathlib.Path(sys.argv[1]).read_text(encoding="utf-8")
+listing = skill.index("folderbase workspace list /path/to/root --json")
+validation = skill.index("folderbase validate /path/to/root --json")
+attestation = skill.index("folderbase attest /path/to/root --json")
+assert listing < validation < attestation, (
+    "ordinary-folder discovery must list first, validate second, and attest last"
+)
+PY
+
+core_v05_contract=$(
+  awk '
+    /^run_core_v05_read_only_contract\(\) \{/ { capture = 1 }
+    /^if \[\[ "\$core_contract" = v0\.5-read-only \]\]/ { exit }
+    capture { print }
+  ' "$repository_root/tests/core-contract.sh"
+)
+if grep -F -q -- '"$folderbase" init' <<<"$core_v05_contract"; then
+  printf '%s\n' \
+    'Core 0.5 read-only proof must not use candidate mutation to create its fixture.' \
+    >&2
+  exit 1
+fi
+grep -F -q -- \
+  'core_v05_manifest_fixture="$test_directory/fixtures/core-v05-manifest-only.json"' \
+  "$repository_root/tests/core-contract.sh"
+for core_v05_ci_claim in \
+  'FOLDERBASE_CORE_CONTRACT: v0.5-read-only' \
+  'FOLDERBASE_CORE_REF: 45de7804bb4e57224e5b9495e4394441ce652f0b'
+do
+  grep -F -q -- "$core_v05_ci_claim" "$repository_root/.github/workflows/ci.yml"
+done
+grep -F -q -- \
+  'FOLDERBASE_CORE_CONTRACT=v0.5-read-only' \
+  "$repository_root/README.md"
+grep -F -q -- \
+  'FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b' \
+  "$repository_root/README.md"
 
 for required_text in \
   'references/protocol-surface.md' \

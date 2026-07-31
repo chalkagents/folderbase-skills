@@ -1,0 +1,35 @@
+{
+  "$schema": "https://folderbase.ai/protocol/0.5/folderbase.schema.json",
+  "protocol_version": "0.5.0",
+  "folderbase": {
+    "id": "folderbase_019fba02-65de-74c0-908a-434c63b83e7d",
+    "name": "folderbase-v05-manifest.raD9cc",
+    "kind": "project",
+    "status": "active",
+    "created_at": "2026-07-31T21:09:07.166821+00:00"
+  },
+  "adapters": [],
+  "policies": {
+    "availability": "keep_local",
+    "structural_changes": "approve",
+    "archive": "approve",
+    "cloud_sync": "disabled",
+    "capture_ignore": {
+      "format": "folderbase-capture-ignore-v1",
+      "rules": [
+        "node_modules/",
+        ".next/",
+        "dist/",
+        "build/",
+        "coverage/",
+        ".venv/",
+        "__pycache__/",
+        ".dart_tool/",
+        "Pods/",
+        ".DS_Store",
+        "*.tmp",
+        "~$*"
+      ]
+    }
+  }
+}

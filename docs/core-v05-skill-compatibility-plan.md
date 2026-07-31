@@ -13,8 +13,8 @@ The skill will recognize `.folderbase/manifest.json` as the sole Folderbase boun
 ## Test-first sequence
 
 1. Add acceptance assertions that fail against the mandatory-two-marker and read-narrative-first guidance; make the minimum skill and reference edits to pass.
-2. Add a narrow Core candidate contract that fails without an explicitly identified `v0.5.0-rc.1` CLI and proves ordinary listing, typed `missing_manifest`, manifest-only validation and attestation, optional narrative absence, and sparse large-file metadata; make only consumer-side fixes needed to pass.
-3. Run acceptance, public-eclipse, Skills reference validation, local plus pinned-v0.3 distribution, the unchanged v0.3 contract, and the configured Core 0.5 candidate contract.
+2. Add a narrow Core candidate contract that fails without an explicitly identified `v0.5.0-rc.1` CLI and proves ordinary listing, typed `missing_manifest`, read-only validation and attestation of a checked-in Core-generated manifest-only fixture, optional narrative absence, and sparse large-file metadata; make only consumer-side fixes needed to pass. Do not invoke candidate mutation to construct the read-only proof.
+3. Run acceptance, public-eclipse, Skills reference validation, local plus pinned-v0.3 distribution, the v0.3 mutation contract with explicit two-marker assertions, and the configured Core 0.5 candidate contract.
 
 ## Non-goals
 

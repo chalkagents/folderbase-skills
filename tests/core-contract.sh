@@ -6,6 +6,8 @@ test_directory=$(
   pwd
 )
 template_cases_fixture="$test_directory/fixtures/template-cases.tsv"
+# Captured from exact Core 45de7804bb4e57224e5b9495e4394441ce652f0b.
+core_v05_manifest_fixture="$test_directory/fixtures/core-v05-manifest-only.json"
 temporary_root=$(mktemp -d)
 trap 'rm -R "$temporary_root"' EXIT
 
@@ -115,20 +117,9 @@ PY
   test ! -e "$ordinary_root/.folderbaseignore"
 
   local manifest_only_root="$temporary_root/manifest-only-folderbase"
-  mkdir -p "$manifest_only_root"
-  "$folderbase" init "$manifest_only_root" --json \
-    >"$temporary_root/manifest-only-init.json"
-  python3 - "$temporary_root/manifest-only-init.json" <<'PY'
-import json
-import sys
-
-result = json.load(open(sys.argv[1], encoding="utf-8"))
-assert set(result["created_paths"]) == {
-    ".folderbase",
-    ".folderbase/manifest.json",
-}
-assert result["preserved_paths"] == []
-PY
+  mkdir -p "$manifest_only_root/.folderbase"
+  cp "$core_v05_manifest_fixture" \
+    "$manifest_only_root/.folderbase/manifest.json"
   test -f "$manifest_only_root/.folderbase/manifest.json"
   test ! -e "$manifest_only_root/FOLDERBASE.md"
   test ! -e "$manifest_only_root/.folderbaseignore"
@@ -303,6 +294,85 @@ done
 grep -Fq \
   'person, organization, engagement, project, customer, temporary, custom' \
   "$temporary_root/init-help.txt"
+
+# Core v0.3 identifies an existing Folderbase only when both v0.3 markers
+# are present. Keep this separate from the v0.5 manifest-only discovery proof.
+v03_boundary_root="$temporary_root/v03-boundary"
+mkdir -p "$v03_boundary_root"
+v03_boundary_arguments=(
+  "$v03_boundary_root"
+  --name 'Core v0.3 boundary contract'
+  --kind project
+  --no-agent-adapters
+  --json
+)
+"$folderbase" init \
+  "${v03_boundary_arguments[@]:0:1}" \
+  --dry-run \
+  "${v03_boundary_arguments[@]:1}" \
+  >"$temporary_root/v03-boundary-preview.json"
+v03_boundary_digest=$(
+  read_plan_digest "$temporary_root/v03-boundary-preview.json"
+)
+"$folderbase" init \
+  "${v03_boundary_arguments[@]:0:1}" \
+  --expected-plan-digest "$v03_boundary_digest" \
+  "${v03_boundary_arguments[@]:1}" \
+  >"$temporary_root/v03-boundary-init.json"
+test -f "$v03_boundary_root/FOLDERBASE.md"
+test -f "$v03_boundary_root/.folderbase/manifest.json"
+"$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-valid.json"
+
+mv \
+  "$v03_boundary_root/FOLDERBASE.md" \
+  "$temporary_root/v03-boundary-entry.saved"
+if "$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-missing-entry.json"
+then
+  printf '%s\n' \
+    'Core v0.3 unexpectedly accepted a boundary without FOLDERBASE.md.' >&2
+  exit 1
+fi
+python3 - "$temporary_root/v03-boundary-missing-entry.json" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+assert report["valid"] is False
+assert "missing_folderbase_entry" in {
+    finding["code"] for finding in report["findings"]
+}
+PY
+mv \
+  "$temporary_root/v03-boundary-entry.saved" \
+  "$v03_boundary_root/FOLDERBASE.md"
+
+mv \
+  "$v03_boundary_root/.folderbase/manifest.json" \
+  "$temporary_root/v03-boundary-manifest.saved"
+if "$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-missing-manifest.json"
+then
+  printf '%s\n' \
+    'Core v0.3 unexpectedly accepted a boundary without its manifest.' >&2
+  exit 1
+fi
+python3 - "$temporary_root/v03-boundary-missing-manifest.json" <<'PY'
+import json
+import sys
+
+report = json.load(open(sys.argv[1], encoding="utf-8"))
+assert report["valid"] is False
+assert "missing_manifest" in {
+    finding["code"] for finding in report["findings"]
+}
+PY
+mv \
+  "$temporary_root/v03-boundary-manifest.saved" \
+  "$v03_boundary_root/.folderbase/manifest.json"
+"$folderbase" validate "$v03_boundary_root" --json \
+  >"$temporary_root/v03-boundary-restored.json"
 
 while IFS=$'\t' read -r \
   template_selector \

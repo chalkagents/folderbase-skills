@@ -226,7 +226,7 @@ if [[ "$core_contract" != v0.3 ]]; then
 fi
 if [[ -n "${FOLDERBASE_CORE_CLI:-}" ]]; then
   printf '%s\n' \
-    'FOLDERBASE_CORE_CLI requires FOLDERBASE_CORE_CONTRACT=v0.5-read-only.' \
+    'FOLDERBASE_CORE_CLI is unsupported by exact-source Core contracts.' \
     >&2
   exit 1
 fi

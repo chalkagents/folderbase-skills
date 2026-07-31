@@ -24,6 +24,7 @@ for root_file in \
   docs/test-evidence/core-v02-contract-red.md \
   docs/test-evidence/core-v021-contract-red.md \
   docs/test-evidence/core-v030-contract-red.md \
+  docs/test-evidence/core-v05-skill-compatibility.md \
   docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v030-publication.md \

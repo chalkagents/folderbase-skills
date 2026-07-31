@@ -14,23 +14,31 @@ surface differs from this workflow.
 
 ## Establish the boundary
 
-Treat a directory as a Folderbase root only when both `FOLDERBASE.md` and
-`.folderbase/manifest.json` exist. A product name, adapter, workspace
-descriptor, relationship, nested path, or cloud registration is not proof of a
-Folderbase and never grants authority.
+For Core 0.5 read-only discovery, `.folderbase/manifest.json` is the sole
+Folderbase boundary marker. A manifest-only Folderbase is valid.
+`FOLDERBASE.md` and `.folderbaseignore` are optional ordinary files. Neither
+optional file is authoritative or required to identify the root. A product
+name, adapter, workspace descriptor, relationship, nested path, or cloud
+registration is not proof of a Folderbase and never grants authority.
 
 Stop at every nested Folderbase. Treat it as an opaque, independent boundary
 even when its manifest is malformed. Never follow a symlink or relative path
 outside the active root.
 
-Read `FOLDERBASE.md` first, then use the official CLI:
+Use the official CLI to validate the boundary. List metadata before reading
+file content:
 
 ```sh
 folderbase validate /path/to/root --json
 folderbase attest /path/to/root --json
 folderbase workspace list /path/to/root --json
-folderbase workspace read /path/to/root FOLDERBASE.md --json
 ```
+
+Read an optional narrative only when the user's task requires its content and
+only after listing it as ordinary metadata. If the manifest is absent,
+`missing_manifest` is an ordinary unmanaged inspection state, not a browsing
+failure. Continue with the ordinary-folder workflow. Never initialize without
+explicit user intent.
 
 Do not read or edit `.folderbase/` internals directly.
 

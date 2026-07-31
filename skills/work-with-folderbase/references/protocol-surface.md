@@ -20,6 +20,24 @@ The `0.x` surface is pre-stable. Mutation requires this exact tested CLI
 release and protocol range. Any untested CLI release remains read-only until
 this reference and the acceptance suite are updated.
 
+## Core 0.5 read-only discovery candidate
+
+- Candidate tag: `v0.5.0-rc.1`
+- Candidate core commit:
+  `45de7804bb4e57224e5b9495e4394441ce652f0b`
+- Exact CLI output: `folderbase 0.5.0-rc.1`
+
+This candidate is tested only for read-only discovery. It does not replace the
+v0.3.0 mutation pin above. In the candidate contract,
+`.folderbase/manifest.json` is the sole Folderbase boundary marker and a
+manifest-only Folderbase is valid. `FOLDERBASE.md` and `.folderbaseignore` are
+optional ordinary non-authoritative files.
+
+For an ordinary folder, list metadata before content. A typed
+`missing_manifest` response means the path is unmanaged; it does not make
+ordinary-folder inspection a failure and does not authorize initialization.
+Never initialize without explicit user intent.
+
 ## Authoritative documents
 
 - [Protocol specification](https://github.com/chalkagents/folderbase/blob/91530adbd984fdd61f22ecd73dd48c80e8364416/docs/protocol-spec.md)

@@ -134,6 +134,29 @@ normalized_skill_text=$(
   tr '\n' ' ' <"$skill_file" |
     tr -s '[:space:]' ' '
 )
+for rejected_guidance in \
+  'only when both `FOLDERBASE.md` and `.folderbase/manifest.json` exist' \
+  'Read `FOLDERBASE.md` first'
+do
+  if grep -F -q -- "$rejected_guidance" <<<"$normalized_skill_text"; then
+    printf 'Skill retains obsolete Core 0.3 boundary guidance: %s\n' \
+      "$rejected_guidance" >&2
+    exit 1
+  fi
+done
+
+for core_v05_discovery_claim in \
+  '`.folderbase/manifest.json` is the sole Folderbase boundary marker' \
+  'A manifest-only Folderbase is valid' \
+  '`FOLDERBASE.md` and `.folderbaseignore` are optional ordinary files' \
+  'Neither optional file is authoritative' \
+  '`missing_manifest` is an ordinary unmanaged inspection state' \
+  'List metadata before reading file content' \
+  'Never initialize without explicit user intent'
+do
+  grep -F -q -- "$core_v05_discovery_claim" <<<"$normalized_skill_text"
+done
+
 for required_text in \
   'references/protocol-surface.md' \
   'FOLDERBASE.md' \
@@ -209,6 +232,20 @@ for required_text in \
   '0.3.0'
 do
   grep -F -q -- "$required_text" "$protocol_reference"
+done
+
+for core_v05_candidate_claim in \
+  'v0.5.0-rc.1' \
+  '45de7804bb4e57224e5b9495e4394441ce652f0b' \
+  'folderbase 0.5.0-rc.1' \
+  'read-only discovery candidate' \
+  'sole Folderbase boundary marker' \
+  'manifest-only Folderbase is valid' \
+  'optional ordinary non-authoritative files' \
+  'missing_manifest' \
+  'metadata before content'
+do
+  grep -F -q -- "$core_v05_candidate_claim" "$protocol_reference"
 done
 
 while IFS=$'\t' read -r template_selector _template_kind _mode \

@@ -25,6 +25,7 @@ for root_file in \
   docs/test-evidence/core-v021-contract-red.md \
   docs/test-evidence/core-v030-contract-red.md \
   docs/test-evidence/core-v05-skill-compatibility.md \
+  docs/test-evidence/fb45f-opencode-catalog-distribution.md \
   docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v030-publication.md \
@@ -88,10 +89,25 @@ for tested_agent in \
   'Claude Code' \
   'Cursor' \
   'Hermes Agent' \
-  'OpenClaw'
+  'OpenClaw' \
+  'OpenCode'
 do
   grep -F -q -- "$tested_agent" "$repository_root/README.md"
 done
+
+for catalog_distribution_claim in \
+  'https://www.skills.sh/chalkagents/folderbase-skills/work-with-folderbase' \
+  'npx --yes skills@1.5.20 add \' \
+  'chalkagents/folderbase-skills \' \
+  '--list' \
+  'moving default branch' \
+  'immutable tag'
+do
+  grep -F -q -- "$catalog_distribution_claim" "$repository_root/README.md"
+done
+grep -F -q -- \
+  'catalog_source=${FOLDERBASE_SKILLS_CATALOG_SOURCE:-chalkagents/folderbase-skills}' \
+  "$repository_root/tests/distribution.sh"
 
 test -z "$(find "$skill_directory" -type l -print -quit)"
 test -z "$(find "$skill_directory" -type f -perm -111 -print -quit)"
@@ -377,7 +393,8 @@ for local_install_contract in \
   'verify_local_install claude-code .claude/skills' \
   'verify_local_install cursor .agents/skills' \
   'verify_local_install hermes-agent .hermes/skills' \
-  'verify_local_install openclaw skills'
+  'verify_local_install openclaw skills' \
+  'verify_local_install opencode .agents/skills'
 do
   grep -F -q -- "$local_install_contract" \
     "$repository_root/tests/distribution.sh"
@@ -387,7 +404,8 @@ for published_install_contract in \
   'verify_published_install claude-code .claude/skills' \
   'verify_published_install cursor .agents/skills' \
   'verify_published_install hermes-agent .hermes/skills' \
-  'verify_published_install openclaw skills'
+  'verify_published_install openclaw skills' \
+  'verify_published_install opencode .agents/skills'
 do
   grep -F -q -- "$published_install_contract" \
     "$repository_root/tests/distribution.sh"

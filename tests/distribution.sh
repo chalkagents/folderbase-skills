@@ -19,23 +19,29 @@ published_ref=${FOLDERBASE_SKILLS_PUBLISHED_REF:-v0.3.0}
 published_hash=${FOLDERBASE_SKILLS_PUBLISHED_HASH:-0e3e8035100107c6dc1ff7aeb0fb968c058b7f9d7654f781323b0381b63b3e0f}
 published_skill_sha=${FOLDERBASE_SKILLS_SKILL_SHA:-35718d726a76346fd1177636caaa6a61af9a6d20aa8cdf55a0273e05656a34ae}
 published_reference_sha=${FOLDERBASE_SKILLS_REFERENCE_SHA:-7aa27908fe0da69a1da0a7795de046227a186b519cc3c0b269be416202396f6c}
+catalog_source=${FOLDERBASE_SKILLS_CATALOG_SOURCE:-chalkagents/folderbase-skills}
 test -x "$skills_cli"
+test "$("$skills_cli" --version)" = "1.5.20"
 
-local_list_output=$(
-  "$skills_cli" add "$repository_root" --list
-)
-if ! grep -Fq 'work-with-folderbase' <<<"$local_list_output"; then
-  printf '%s\n' 'The Skills CLI did not discover the local work-with-folderbase skill.' >&2
-  exit 1
-fi
+verify_discovery() {
+  local source=$1
+  local description=$2
+  local discovery_output
 
-published_list_output=$(
-  "$skills_cli" add "$published_source" --list
-)
-if ! grep -Fq 'work-with-folderbase' <<<"$published_list_output"; then
-  printf '%s\n' 'The Skills CLI did not discover the published work-with-folderbase skill.' >&2
-  exit 1
-fi
+  discovery_output=$(
+    "$skills_cli" add "$source" --list
+  )
+  if ! grep -Fq 'work-with-folderbase' <<<"$discovery_output"; then
+    printf \
+      'The Skills CLI did not discover work-with-folderbase through %s.\n' \
+      "$description" >&2
+    exit 1
+  fi
+}
+
+verify_discovery "$repository_root" 'the local checkout'
+verify_discovery "$published_source" 'the exact published tag'
+verify_discovery "$catalog_source" 'the canonical catalog shorthand'
 
 install_skill() {
   local source=$1
@@ -113,11 +119,13 @@ verify_local_install claude-code .claude/skills
 verify_local_install cursor .agents/skills
 verify_local_install hermes-agent .hermes/skills
 verify_local_install openclaw skills
+verify_local_install opencode .agents/skills
 verify_published_install codex .agents/skills
 verify_published_install claude-code .claude/skills
 verify_published_install cursor .agents/skills
 verify_published_install hermes-agent .hermes/skills
 verify_published_install openclaw skills
+verify_published_install opencode .agents/skills
 
 printf '%s\n' \
   'Local and version-pinned published Folderbase skill installs are valid.'

@@ -33,11 +33,26 @@ DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
 ```
 
 Add `--global` for a user-level installation. The `v0.3.0` release is
-install-tested for Codex, Claude Code, Cursor, Hermes Agent, and OpenClaw; the
-same portable skill can work in other Agent Skills-compatible harnesses. The
-tag in the source URL is intentional: review and install a version-pinned
-Folderbase Skills release rather than whatever happens to be on the
-repository's moving default branch.
+install-tested for Codex, Claude Code, Cursor, Hermes Agent, OpenClaw, and
+OpenCode; the same portable skill can work in other Agent Skills-compatible
+harnesses. The tag in the source URL is intentional: review and install a
+version-pinned Folderbase Skills release rather than whatever happens to be on
+the repository's moving default branch.
+
+Folderbase Skills is also discoverable in the
+[public skills.sh catalog](https://www.skills.sh/chalkagents/folderbase-skills/work-with-folderbase)
+and through the canonical repository shorthand:
+
+```sh
+DISABLE_TELEMETRY=1 npx --yes skills@1.5.20 add \
+  chalkagents/folderbase-skills \
+  --list
+```
+
+The catalog and shorthand intentionally resolve the moving default branch for
+discovery. They are not an immutable release identity. Use the version-pinned
+immutable tag above when installing a reproducible Folderbase mutation
+workflow.
 
 Install its matching Folderbase CLI before asking an agent to mutate a
 Folderbase:
@@ -81,10 +96,10 @@ FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b \
 ```
 
 CI also validates the Agent Skills format, installs the skill into isolated
-Codex, Claude Code, Cursor, Hermes Agent, and OpenClaw projects, and runs the
-unchanged mutation workflow against exact Core v0.3.0 plus the read-only
-discovery workflow against exact Core v0.5.0-rc.1. The v0.3 public install
-default remains unchanged.
+Codex, Claude Code, Cursor, Hermes Agent, OpenClaw, and OpenCode projects, and
+runs the unchanged mutation workflow against exact Core v0.3.0 plus the
+read-only discovery workflow against exact Core v0.5.0-rc.1. The v0.3 public
+install default remains unchanged.
 
 ## Security
 

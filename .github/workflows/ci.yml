@@ -34,6 +34,9 @@ jobs:
       - name: Install pinned JavaScript dependencies
         run: npm ci --ignore-scripts
 
+      - name: Audit pinned JavaScript dependencies
+        run: npm audit --audit-level=high
+
       - name: Enforce the Folderbase-only public surface
         run: scripts/check-public-eclipse.sh
 
@@ -45,6 +48,11 @@ jobs:
 
       - name: Test discovery and agent installations
         run: tests/distribution.sh
+
+      - name: Test the public fresh-Linux Change Set bootstrap
+        env:
+          FOLDERBASE_EXPECT_OS: Linux
+        run: tests/linux-vm-bootstrap.sh
 
       - name: Test the immutable Folderbase Core v0.3 mutation contract
         run: tests/core-contract.sh

@@ -34,6 +34,7 @@ for root_file in \
   docs/test-evidence/skills-v030-release-red.md \
   docs/test-evidence/skills-v040-publication.md \
   docs/test-evidence/skills-v040-release-red.md \
+  docs/test-evidence/skills-v040-linux-vm-bootstrap.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
   .gitignore \
@@ -45,6 +46,7 @@ for root_file in \
   tests/acceptance.sh \
   tests/core-contract.sh \
   tests/distribution.sh \
+  tests/linux-vm-bootstrap.sh \
   tests/fixtures/core-v05-manifest-only.json \
   tests/fixtures/adversarial/untrusted-document.md \
   tests/fixtures/template-cases.tsv
@@ -57,6 +59,7 @@ test -x "$repository_root/scripts/check-ci-policy.sh"
 test -x "$repository_root/tests/acceptance.sh"
 test -x "$repository_root/tests/core-contract.sh"
 test -x "$repository_root/tests/distribution.sh"
+test -x "$repository_root/tests/linux-vm-bootstrap.sh"
 
 test -f "$skill_file"
 test -f "$protocol_reference"
@@ -240,6 +243,28 @@ grep -F -q -- \
 grep -F -q -- \
   'FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b' \
   "$repository_root/README.md"
+
+for linux_vm_bootstrap_claim in \
+  'bash tests/linux-vm-bootstrap.sh' \
+  'fresh Linux' \
+  '@folderbase/cli@0.7.2' \
+  'already-authorized ordinary checkout' \
+  'does not create sharing or Cloud authority'
+do
+  grep -F -q -- "$linux_vm_bootstrap_claim" <<<"$normalized_readme_text"
+done
+for linux_vm_ci_claim in \
+  'Test the public fresh-Linux Change Set bootstrap' \
+  'run: tests/linux-vm-bootstrap.sh'
+do
+  grep -F -q -- "$linux_vm_ci_claim" "$repository_root/.github/workflows/ci.yml"
+done
+for dependency_audit_ci_claim in \
+  'Audit pinned JavaScript dependencies' \
+  'run: npm audit --audit-level=high'
+do
+  grep -F -q -- "$dependency_audit_ci_claim" "$repository_root/.github/workflows/ci.yml"
+done
 
 for change_set_skill_claim in \
   'exact v0.7.2 Change Set profile' \

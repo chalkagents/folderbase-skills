@@ -56,9 +56,10 @@ npm audit --audit-level=high
 
 Local contract parity passed on macOS with the bundled Node.js 24 runtime; it
 installed the public artifacts, preserved the mixed-file checkout, produced a
-clean Change Set, and retained the private sibling boundary. The final hosted
-Linux result and immutable commit will be recorded after the ready pull request
-runs.
+clean Change Set, and retained the private sibling boundary. Hosted Ubuntu run
+[31965731005](https://github.com/chalkagents/folderbase-skills/actions/runs/31965731005)
+then passed the new fresh-Linux bootstrap plus every existing exact Core and
+distribution gate in 3m59s at commit `0530add`.
 
 ## Explicit nonclaims
 

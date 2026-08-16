@@ -56,11 +56,6 @@ discovery. They are not an immutable release identity. Use the version-pinned
 immutable tag above when installing a reproducible Folderbase mutation
 workflow.
 
-During release review, the `v0.4.0` source URL becomes installable only after
-this reviewed head is merged and tagged `v0.4.0`. Until both steps are
-complete, use the published `v0.3.0` source for reproducible installation or
-test this checkout locally; do not assume the new tag already exists.
-
 Install the exact Folderbase CLI required by the intended workflow. Use Core
 `v0.3.0` for initialization, migration, version, and workspace-save work:
 
@@ -134,9 +129,8 @@ CI also validates the Agent Skills format, installs the skill into isolated
 Codex, Claude Code, Cursor, Hermes Agent, OpenClaw, and OpenCode projects, and
 runs the unchanged mutation workflow against exact Core v0.3.0 plus the
 read-only discovery workflow against exact Core v0.5.0-rc.1 and the scoped
-Change Set handoff against exact Core v0.7.2. During release review, the public
-install test remains pinned to the last verified `v0.3.0` Skills tag until the
-new tag exists and passes exact-tag installation.
+Change Set handoff against exact Core v0.7.2. The public installation gate uses
+the exact `v0.4.0` tag, lock identity, and release file hashes.
 
 ## Security
 

@@ -14,11 +14,11 @@ trap 'rm -R "$temporary_root"' EXIT
 
 export DISABLE_TELEMETRY=1
 skills_cli="$repository_root/node_modules/.bin/skills"
-published_source=${FOLDERBASE_SKILLS_PUBLISHED_SOURCE:-https://github.com/chalkagents/folderbase-skills/tree/v0.3.0}
-published_ref=${FOLDERBASE_SKILLS_PUBLISHED_REF:-v0.3.0}
-published_hash=${FOLDERBASE_SKILLS_PUBLISHED_HASH:-0e3e8035100107c6dc1ff7aeb0fb968c058b7f9d7654f781323b0381b63b3e0f}
-published_skill_sha=${FOLDERBASE_SKILLS_SKILL_SHA:-35718d726a76346fd1177636caaa6a61af9a6d20aa8cdf55a0273e05656a34ae}
-published_reference_sha=${FOLDERBASE_SKILLS_REFERENCE_SHA:-7aa27908fe0da69a1da0a7795de046227a186b519cc3c0b269be416202396f6c}
+published_source=${FOLDERBASE_SKILLS_PUBLISHED_SOURCE:-https://github.com/chalkagents/folderbase-skills/tree/v0.4.0}
+published_ref=${FOLDERBASE_SKILLS_PUBLISHED_REF:-v0.4.0}
+published_hash=${FOLDERBASE_SKILLS_PUBLISHED_HASH:-6bff7b1dd04b7aae5b361a2be773a6cfa4d9fde8c98578638abce76821a93f5a}
+published_skill_sha=${FOLDERBASE_SKILLS_SKILL_SHA:-82b871a5d9125b58c91481e7c9c115ea539939ece67f978ca7ed35f64b2af4a3}
+published_reference_sha=${FOLDERBASE_SKILLS_REFERENCE_SHA:-543cfb24febe388a3833999dcd781c83caf12ef14ca59c1cb4cc93964bf78792}
 catalog_source=${FOLDERBASE_SKILLS_CATALOG_SOURCE:-chalkagents/folderbase-skills}
 test -x "$skills_cli"
 test "$("$skills_cli" --version)" = "1.5.20"

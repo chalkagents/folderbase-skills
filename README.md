@@ -71,6 +71,13 @@ Use Core `v0.7.2` for work inside an already-authorized ordinary checkout that
 must return a reviewable Change Set:
 
 ```sh
+npx --yes @folderbase/cli@0.7.2 --version
+```
+
+The public npm package is the shortest fresh-machine path. The equivalent
+source-pinned install remains available when a Rust toolchain is preferred:
+
+```sh
 cargo install \
   --git https://github.com/chalkagents/folderbase.git \
   --rev 7439babec74242d9d162ab09f12f2f1b1b2c5cbe \
@@ -123,6 +130,7 @@ FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b \
 FOLDERBASE_CORE_CONTRACT=v0.7.2-change-set \
 FOLDERBASE_CORE_REF=7439babec74242d9d162ab09f12f2f1b1b2c5cbe \
   bash tests/core-contract.sh
+bash tests/linux-vm-bootstrap.sh
 ```
 
 CI also validates the Agent Skills format, installs the skill into isolated
@@ -131,6 +139,13 @@ runs the unchanged mutation workflow against exact Core v0.3.0 plus the
 read-only discovery workflow against exact Core v0.5.0-rc.1 and the scoped
 Change Set handoff against exact Core v0.7.2. The public installation gate uses
 the exact `v0.4.0` tag, lock identity, and release file hashes.
+
+The fresh Linux acceptance starts with isolated user and npm state, installs
+the immutable Skills v0.4.0 tag plus `@folderbase/cli@0.7.2`, receives an
+already-authorized ordinary checkout, preserves mixed ordinary file types, and
+returns a Change Set for separate review. It does not create sharing or Cloud
+authority and does not claim Live Folder redemption, synchronization, hosted
+VM lifecycle, or agent self-apply.
 
 ## Security
 

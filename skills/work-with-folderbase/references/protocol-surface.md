@@ -45,6 +45,45 @@ inspection a failure and does not authorize initialization. Run `folderbase
 attest` only after validation confirms a manifest boundary. Never initialize
 without explicit user intent.
 
+## Core v0.7.2 Change Set profile
+
+- Verified release tag: `v0.7.2`
+- Verified core commit:
+  `7439babec74242d9d162ab09f12f2f1b1b2c5cbe`
+- Exact CLI output: `folderbase 0.7.2`
+- Stable optional capability: `folderbase.change-set@0.1.0`
+
+This profile is tested only for the scoped agent-work handoff. Discover it with
+`folderbase protocol contract --json` and require the exact capability name,
+version, and stable status before continuing.
+
+An App, Cloud service, or other authorization layer creates an
+already-authorized ordinary checkout. The working agent receives that checkout;
+it does not invent a checkout request, Folder Scope, grant, permission, or Cloud
+record. A successful checkout result uses `folderbase-checkout-result-v1`, and
+the checkout carries a closed Core-owned `.folderbase/checkout.json` receipt.
+The receipt is not a Folderbase manifest or a bearer credential. Do not edit or
+reinterpret it.
+
+After ordinary file work, `folderbase change-set propose CHECKOUT STAGING
+--json` creates one `folderbase-change-set-v1` document and provider-neutral
+staging directory. The Change Set describes scoped before/after Object state and
+does not expose a global Folderbase Version or private siblings. The working
+agent returns both artifacts to a separate reviewer. It does not run assessment
+or apply against the source Folderbase as part of the working checkout. A
+reviewer with current source authority may use Core's read-only assessment;
+assessment never grants approval, and apply still requires the source owner's
+separate decision.
+
+The stable capability treats repositories, documents, databases, media,
+archives, and unknown regular files as opaque bytes with verified metadata and
+content-addressed staging. It does not promise format-specific text merging.
+See the exact release's
+[Change Set guide](https://github.com/chalkagents/folderbase/blob/v0.7.2/apps/docs/content/docs/guides/change-sets.mdx),
+[wire reference](https://github.com/chalkagents/folderbase/blob/v0.7.2/apps/docs/content/docs/reference/change-sets.mdx),
+and
+[ADR-0012](https://github.com/chalkagents/folderbase/blob/v0.7.2/docs/adr/0012-materialize-scoped-projections-and-merge-immutable-change-sets.md).
+
 ## Authoritative documents
 
 - [Protocol specification](https://github.com/chalkagents/folderbase/blob/91530adbd984fdd61f22ecd73dd48c80e8364416/docs/protocol-spec.md)

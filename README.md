@@ -82,6 +82,16 @@ The skill defaults to read-only inspection, treats file content as untrusted,
 stops at nested Folderbase and symlink boundaries, and requires explicit user
 approval for mutation.
 
+The moving default branch also validates one exact Core `v0.7.2` Change Set
+profile at commit `7439babec74242d9d162ab09f12f2f1b1b2c5cbe`. In that profile,
+an agent receives an already-authorized ordinary checkout, works with every
+file type using normal filesystem tools, and returns one immutable Change Set
+plus provider-neutral staging for a separate Folderbase App review. The skill
+does not create sharing authority and the working agent does not apply its own
+proposal. Read-only assessment is not approval. This is development coverage
+for the next Skills release; it does not rewrite the published `v0.3.0`
+pairing above.
+
 ## Verify
 
 ```sh
@@ -93,13 +103,17 @@ bash tests/core-contract.sh
 FOLDERBASE_CORE_CONTRACT=v0.5-read-only \
 FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b \
   bash tests/core-contract.sh
+FOLDERBASE_CORE_CONTRACT=v0.7.2-change-set \
+FOLDERBASE_CORE_REF=7439babec74242d9d162ab09f12f2f1b1b2c5cbe \
+  bash tests/core-contract.sh
 ```
 
 CI also validates the Agent Skills format, installs the skill into isolated
 Codex, Claude Code, Cursor, Hermes Agent, OpenClaw, and OpenCode projects, and
 runs the unchanged mutation workflow against exact Core v0.3.0 plus the
-read-only discovery workflow against exact Core v0.5.0-rc.1. The v0.3 public
-install default remains unchanged.
+read-only discovery workflow against exact Core v0.5.0-rc.1 and the scoped
+Change Set handoff against exact Core v0.7.2. The v0.3 public install default
+remains unchanged.
 
 ## Security
 

@@ -25,6 +25,8 @@ for root_file in \
   docs/test-evidence/core-v021-contract-red.md \
   docs/test-evidence/core-v030-contract-red.md \
   docs/test-evidence/core-v05-skill-compatibility.md \
+  docs/test-evidence/v072-change-set-skill-red-green.md \
+  docs/organization-change-set-skill-plan.md \
   docs/test-evidence/fb45f-opencode-catalog-distribution.md \
   docs/test-evidence/skills-v021-publication.md \
   docs/test-evidence/skills-v021-release-red.md \
@@ -234,6 +236,91 @@ grep -F -q -- \
 grep -F -q -- \
   'FOLDERBASE_CORE_REF=45de7804bb4e57224e5b9495e4394441ce652f0b' \
   "$repository_root/README.md"
+
+for change_set_skill_claim in \
+  'exact v0.7.2 Change Set profile' \
+  'folderbase.change-set@0.1.0' \
+  'folderbase protocol contract --json' \
+  'already-authorized ordinary checkout' \
+  'one question at a time' \
+  'Other' \
+  'before/after tree' \
+  'why each grouping' \
+  'metadata-first' \
+  'every file type' \
+  'folderbase change-set propose' \
+  'must not apply its own proposal' \
+  'read-only assessment' \
+  'not approval' \
+  '.folderbase/checkout.json' \
+  'do not edit' \
+  'separate Folderbase App review'
+do
+  grep -F -i -q -- "$change_set_skill_claim" <<<"$normalized_skill_text"
+done
+
+for change_set_reference_claim in \
+  'v0.7.2' \
+  '7439babec74242d9d162ab09f12f2f1b1b2c5cbe' \
+  'folderbase 0.7.2' \
+  'folderbase.change-set@0.1.0' \
+  'folderbase-checkout-result-v1' \
+  'folderbase-change-set-v1' \
+  'provider-neutral staging' \
+  'does not expose a global Folderbase Version' \
+  'separate reviewer'
+do
+  grep -F -q -- "$change_set_reference_claim" \
+    <<<"$normalized_protocol_reference_text"
+done
+
+for change_set_ci_claim in \
+  'FOLDERBASE_CORE_CONTRACT: v0.7.2-change-set' \
+  'FOLDERBASE_CORE_REF: 7439babec74242d9d162ab09f12f2f1b1b2c5cbe'
+do
+  grep -F -q -- "$change_set_ci_claim" "$repository_root/.github/workflows/ci.yml"
+done
+grep -F -q -- \
+  'FOLDERBASE_CORE_CONTRACT=v0.7.2-change-set' \
+  "$repository_root/README.md"
+grep -F -q -- \
+  'FOLDERBASE_CORE_REF=7439babec74242d9d162ab09f12f2f1b1b2c5cbe' \
+  "$repository_root/README.md"
+
+core_v072_override_error=$(mktemp)
+if FOLDERBASE_CORE_CONTRACT=v0.7.2-change-set \
+  FOLDERBASE_CORE_REF=7439babec74242d9d162ab09f12f2f1b1b2c5cbe \
+  FOLDERBASE_CORE_CLI=/bin/true \
+  bash "$repository_root/tests/core-contract.sh" \
+  > /dev/null \
+  2>"$core_v072_override_error"
+then
+  printf '%s\n' \
+    'Core 0.7.2 exact-source proof unexpectedly accepted a CLI override.' >&2
+  exit 1
+fi
+grep -F -q -- \
+  'Core 0.7.2 exact-source proof does not accept executable overrides.' \
+  "$core_v072_override_error"
+rm "$core_v072_override_error"
+
+change_set_evidence="$repository_root/docs/test-evidence/v072-change-set-skill-red-green.md"
+normalized_change_set_evidence_text=$(
+  tr '\n' ' ' <"$change_set_evidence" |
+    tr -s '[:space:]' ' '
+)
+for change_set_evidence_claim in \
+  'CHANGE_SET_SKILL_ACCEPTANCE_RED_EXIT=1' \
+  'CHANGE_SET_CORE_GREEN_EXIT=0' \
+  '7439babec74242d9d162ab09f12f2f1b1b2c5cbe' \
+  'folderbase.change-set@0.1.0' \
+  'separate read-only assessment returns `clean`' \
+  'working agent does not apply its own proposal' \
+  'read-only assessment is not approval'
+do
+  grep -F -q -- "$change_set_evidence_claim" \
+    <<<"$normalized_change_set_evidence_text"
+done
 
 for required_text in \
   'references/protocol-surface.md' \

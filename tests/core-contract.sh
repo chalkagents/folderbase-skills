@@ -15,6 +15,7 @@ trap 'rm -R "$temporary_root"' EXIT
 core_repository=https://github.com/chalkagents/folderbase.git
 core_contract=${FOLDERBASE_CORE_CONTRACT:-v0.3}
 core_v05_candidate_ref=45de7804bb4e57224e5b9495e4394441ce652f0b
+core_v072_change_set_ref=7439babec74242d9d162ab09f12f2f1b1b2c5cbe
 
 run_core_v05_read_only_contract() {
   local configured_ref=${FOLDERBASE_CORE_REF:-$core_v05_candidate_ref}
@@ -108,6 +109,7 @@ assert by_path["sparse-archive.bin"] == {
     "editable": False,
     "reconstructable": False,
 }
+
 assert by_path["docs/note.md"]["bytes"] == 14
 assert by_path["docs/note.md"]["editable"] is True
 PY
@@ -216,8 +218,165 @@ PY
     'Folderbase skill and exact Core 0.5 candidate read-only contract are compatible.'
 }
 
+run_core_v072_change_set_contract() {
+  local configured_ref=${FOLDERBASE_CORE_REF:-$core_v072_change_set_ref}
+  local folderbase
+
+  if [[ "$configured_ref" != "$core_v072_change_set_ref" ]]; then
+    printf 'Core 0.7.2 Change Set proof requires exact commit %s.\n' \
+      "$core_v072_change_set_ref" >&2
+    exit 1
+  fi
+  if [[ -n "${FOLDERBASE_CORE_CLI:-}" || -n "${FOLDERBASE_CLI_BIN:-}" ]]; then
+    printf '%s\n' \
+      'Core 0.7.2 exact-source proof does not accept executable overrides.' >&2
+    exit 1
+  fi
+
+  local install_root="$temporary_root/core-v072-install"
+  cargo install \
+    --git "$core_repository" \
+    --rev "$configured_ref" \
+    --locked \
+    --root "$install_root" \
+    folderbase-cli
+  folderbase="$install_root/bin/folderbase"
+  test -x "$folderbase"
+  test "$("$folderbase" --version)" = 'folderbase 0.7.2'
+
+  "$folderbase" protocol contract --json \
+    >"$temporary_root/core-v072-contract.json"
+  python3 - "$temporary_root/core-v072-contract.json" <<'PY'
+import json
+import sys
+
+contract = json.load(open(sys.argv[1], encoding="utf-8"))
+capabilities = {
+    (capability["name"], capability["version"], capability["stability"])
+    for capability in contract["capabilities"]
+}
+assert ("folderbase.change-set", "0.1.0", "stable") in capabilities
+PY
+
+  local source="$temporary_root/core-v072-source"
+  local checkout="$temporary_root/core-v072-checkout"
+  local staging="$temporary_root/core-v072-staging"
+  mkdir -p "$source/shared" "$source/private"
+  printf '%s\n' 'base notes' >"$source/shared/notes.md"
+  printf '%s\n' 'PRIVATE-SIBLING-MARKER' >"$source/private/sibling.txt"
+  python3 - "$source/shared/sample.bin" "$source/shared/project.mp4" <<'PY'
+from pathlib import Path
+import sys
+
+Path(sys.argv[1]).write_bytes(b"\x00\x01\x02\x03")
+with Path(sys.argv[2]).open("wb") as output:
+    output.truncate(4 * 1024 * 1024)
+PY
+
+  "$folderbase" init "$source" --json \
+    >"$temporary_root/core-v072-init.json"
+  python3 - \
+    "$source/.folderbase/manifest.json" \
+    "$temporary_root/core-v072-checkout-request.json" <<'PY'
+import json
+import sys
+
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+request = {
+    "format": "folderbase-checkout-request-v1",
+    "folderbase_id": manifest["folderbase"]["id"],
+    "projection_id": "projection_019f0000-0000-7000-8000-000000000001",
+    "folder_scope_id": "folderscope_019f0000-0000-7000-8000-000000000001",
+    "scope_revision_sha256": "1" * 64,
+    "permission": "can_work",
+    "authorized_paths": [{"path_prefix": "shared"}],
+}
+json.dump(request, open(sys.argv[2], "w", encoding="utf-8"))
+PY
+
+  "$folderbase" change-set checkout "$source" "$checkout" \
+    --stdin --json \
+    <"$temporary_root/core-v072-checkout-request.json" \
+    >"$temporary_root/core-v072-checkout-result.json"
+  test -f "$checkout/.folderbase/checkout.json"
+  test ! -e "$checkout/.folderbase/manifest.json"
+  test ! -e "$checkout/private"
+  test -f "$checkout/shared/notes.md"
+  test -f "$checkout/shared/sample.bin"
+  test -f "$checkout/shared/project.mp4"
+
+  printf '%s\n' 'organized agent notes' >"$checkout/shared/notes.md"
+  python3 - "$checkout/shared/sample.bin" <<'PY'
+from pathlib import Path
+import sys
+
+Path(sys.argv[1]).write_bytes(b"\x00\x01\x04\x05")
+PY
+  mkdir -p "$checkout/shared/organized"
+  printf '%s\n' 'new working context' \
+    >"$checkout/shared/organized/context.md"
+
+  "$folderbase" change-set propose "$checkout" "$staging" --json \
+    >"$temporary_root/core-v072-change-set.json"
+  test -f "$staging/index.json"
+  python3 - \
+    "$temporary_root/core-v072-checkout-result.json" \
+    "$temporary_root/core-v072-change-set.json" \
+    "$checkout" \
+    "$staging" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+checkout_result = json.load(open(sys.argv[1], encoding="utf-8"))
+change_set = json.load(open(sys.argv[2], encoding="utf-8"))
+assert checkout_result["format"] == "folderbase-checkout-result-v1"
+assert change_set["format"] == "folderbase-change-set-v1"
+assert change_set["payload"]["deltas"]
+assert len(change_set["change_set_sha256"]) == 64
+
+private_marker = b"PRIVATE-SIBLING-MARKER"
+for root in (Path(sys.argv[3]), Path(sys.argv[4])):
+    for path in root.rglob("*"):
+        if path.is_file():
+            assert private_marker not in path.read_bytes(), path
+assert private_marker not in Path(sys.argv[2]).read_bytes()
+PY
+
+  "$folderbase" change-set assess "$source" "$staging" \
+    --stdin --json \
+    <"$temporary_root/core-v072-change-set.json" \
+    >"$temporary_root/core-v072-assessment.json"
+  python3 - \
+    "$temporary_root/core-v072-change-set.json" \
+    "$temporary_root/core-v072-assessment.json" <<'PY'
+import json
+import sys
+
+change_set = json.load(open(sys.argv[1], encoding="utf-8"))
+assessment = json.load(open(sys.argv[2], encoding="utf-8"))
+assert assessment == {
+    "format": "folderbase-change-set-assessment-v1",
+    "change_set_sha256": change_set["change_set_sha256"],
+    "status": "clean",
+    "conflicts": [],
+    "current_projection_sha256": assessment["current_projection_sha256"],
+}
+assert len(assessment["current_projection_sha256"]) == 64
+PY
+
+  test "$(cat "$source/shared/notes.md")" = 'base notes'
+  test "$(cat "$source/private/sibling.txt")" = 'PRIVATE-SIBLING-MARKER'
+  printf '%s\n' \
+    'Folderbase skill and exact Core 0.7.2 Change Set handoff are compatible.'
+}
+
 if [[ "$core_contract" = v0.5-read-only ]]; then
   run_core_v05_read_only_contract
+  exit 0
+fi
+if [[ "$core_contract" = v0.7.2-change-set ]]; then
+  run_core_v072_change_set_contract
   exit 0
 fi
 if [[ "$core_contract" != v0.3 ]]; then

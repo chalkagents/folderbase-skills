@@ -56,7 +56,7 @@ The completed slice also passes the portable skill and repository gates:
 ```text
 bash -n tests/acceptance.sh tests/core-contract.sh
 bash tests/acceptance.sh
-python3 /Users/jerel/.codex/skills/.system/skill-creator/scripts/quick_validate.py \
+python3 "$CODEX_HOME/skills/.system/skill-creator/scripts/quick_validate.py" \
   skills/work-with-folderbase
 ./node_modules/.bin/skills-ref validate skills/work-with-folderbase
 git diff --check

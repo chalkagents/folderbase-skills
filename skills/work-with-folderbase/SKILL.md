@@ -1,6 +1,6 @@
 ---
 name: work-with-folderbase
-description: Safely inspect, initialize, validate, navigate, edit, and propose structural changes to Folderbase workspaces with the official folderbase CLI. Use when an agent encounters FOLDERBASE.md or .folderbase/manifest.json, needs to turn an ordinary folder into a Folderbase, work with its files across sessions, preserve versions, or plan an agent-safe reorganization.
+description: Safely inspect, initialize, validate, navigate, edit, organize, and propose structural changes to Folderbase workspaces with the official folderbase CLI. Use when an agent encounters FOLDERBASE.md, .folderbase/manifest.json, or an authorized Folderbase checkout; needs to turn an ordinary folder into a Folderbase; works with its files across sessions; preserves versions; plans an agent-safe reorganization; or returns an immutable Change Set for separate review.
 ---
 
 # Work with Folderbase
@@ -28,6 +28,11 @@ mutation workflow.
   `.folderbaseignore` are optional ordinary files. Neither optional file is
   authoritative or required to identify the root. This candidate profile
   remains read-only.
+- In the exact v0.7.2 Change Set profile (`folderbase 0.7.2`), use only the
+  stable `folderbase.change-set@0.1.0` agent-work handoff described below. An
+  already-authorized ordinary checkout is not a Folderbase root and grants no
+  authority beyond the external App, Cloud, OS, or harness decision that
+  created it.
 - For any other or missing CLI version, permit only bounded native metadata
   inspection of ordinary files. Do not classify or mutate protocol state.
 
@@ -116,10 +121,11 @@ Before any command that can write, verify the official CLI:
 folderbase --version
 ```
 
-Require the exact tested output `folderbase 0.3.0`. A missing CLI, a different
-version, or an unfamiliar command surface keeps the session read-only. Do not
-install, upgrade, downgrade, or substitute a CLI without explicit user
-approval.
+Require `folderbase 0.3.0` for the initialization, migration, version, and
+workspace-save workflows below. Require `folderbase 0.7.2` only for the tested
+Change Set handoff. A missing CLI, a different version, or an unfamiliar
+command surface keeps the session read-only. Do not install, upgrade,
+downgrade, or substitute a CLI without explicit user approval.
 
 ## Inspect an ordinary folder
 
@@ -307,6 +313,68 @@ printf '%s' "$UPDATED_TEXT" | folderbase workspace save \
 
 On a stale SHA or conflict, stop. Re-read, explain the competing version, and
 ask the user how to reconcile it. Never retry blindly or force an overwrite.
+
+## Organize an authorized checkout and return a Change Set
+
+Use this workflow only with exact `folderbase 0.7.2` and an ordinary checkout
+already created by an App, Cloud service, or other authorization layer. Do not
+manufacture a checkout request, Folder Scope, grant, or permission. Do not
+classify the checkout as a Folderbase root.
+
+Discover the capability before work:
+
+```sh
+folderbase --version
+folderbase protocol contract --json
+```
+
+Continue only when the version is exact and the contract advertises
+`folderbase.change-set@0.1.0` as stable. The Core-owned
+`.folderbase/checkout.json` receipt is closed handoff state: do not edit it,
+interpret it as a credential, or copy it into instructions. `change-set
+propose` validates the receipt later.
+
+Inspect the checkout metadata-first. Preserve every file type as ordinary
+bytes: repositories, Markdown, office documents, PDFs, CSVs, databases,
+archives, images, audio, video, and unknown files. Read text only when the task
+needs it. For large or non-text content, inspect names, type, size, and other
+safe metadata first; do not load the complete payload into model context or
+pretend to perform a text merge.
+
+For a smart organization task:
+
+1. Inventory the current tree without opening unrelated content.
+2. Reuse the user's stated purpose and constraints.
+3. Draft a compact before/after tree and explain why each grouping makes the
+   folder easier for both humans and agents to continue later.
+4. Ask one question at a time only when the answer changes grouping, retention,
+   ownership, or the proposed narrative. Offer two or three clear choices with
+   the recommended choice first and an `Other` path. Do not repeat facts the
+   user already gave.
+5. Treat a precise user task as authority for additive, no-clobber work inside
+   this disposable checkout. Ask again before deletion, overwrite, destructive
+   conversion, or ambiguous grouping.
+6. Apply the agreed organization inside the checkout with normal filesystem
+   tools. Preserve opaque bytes, permissions, repositories, and safe relative
+   symlinks. Do not cross a nested Folderbase or the checkout root.
+
+Create one new, absent staging directory and ask exact Core to produce the
+immutable proposal:
+
+```sh
+folderbase change-set propose /path/to/checkout /path/to/new-staging \
+  --json > /path/to/change-set.json
+```
+
+Do not hand-author or modify the returned `folderbase-change-set-v1` document
+or the provider-neutral staging tree. Return both paths plus a short summary of
+the intended organization and unresolved questions. A reviewer with current
+source access may run Core's read-only assessment, but a clean assessment is
+not approval. The working agent must not apply its own proposal. Conflict
+decisions, approval, and publication belong to a separate Folderbase App review
+or other authorized source owner. A failed or ambiguous proposal creates no
+permission to retry with invented state; report the exact failure and preserve
+the checkout.
 
 ## Plan changes to an existing Folderbase
 

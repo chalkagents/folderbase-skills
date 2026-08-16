@@ -32,6 +32,7 @@ for root_file in \
   docs/test-evidence/skills-v021-release-red.md \
   docs/test-evidence/skills-v030-publication.md \
   docs/test-evidence/skills-v030-release-red.md \
+  docs/test-evidence/skills-v040-release-red.md \
   docs/test-evidence/skills-v01-hardening-red.md \
   docs/test-evidence/template-aware-initialization-red.md \
   .gitignore \
@@ -59,22 +60,21 @@ test -x "$repository_root/tests/distribution.sh"
 test -f "$skill_file"
 test -f "$protocol_reference"
 
-release_source='https://github.com/chalkagents/folderbase-skills/tree/v0.3.0'
-release_core_commit='91530adbd984fdd61f22ecd73dd48c80e8364416'
+release_source='https://github.com/chalkagents/folderbase-skills/tree/v0.4.0'
+release_mutation_core_commit='91530adbd984fdd61f22ecd73dd48c80e8364416'
+release_change_set_core_commit='7439babec74242d9d162ab09f12f2f1b1b2c5cbe'
 normalized_readme_text=$(
   tr '\n' ' ' <"$repository_root/README.md" |
     tr -s '[:space:]' ' '
 )
-grep -F -q -- 'current Folderbase Skills release is `v0.3.0`' \
+grep -F -q -- 'current Folderbase Skills release is `v0.4.0`' \
   <<<"$normalized_readme_text"
 grep -F -q -- "$release_source" "$repository_root/README.md"
-grep -F -q -- "$release_core_commit" "$repository_root/README.md"
-if grep -F -q -- \
+grep -F -q -- "$release_mutation_core_commit" "$repository_root/README.md"
+grep -F -q -- "$release_change_set_core_commit" "$repository_root/README.md"
+grep -F -q -- \
   'becomes installable only after this reviewed head is merged and tagged' \
-  <<<"$normalized_readme_text"; then
-  printf '%s\n' 'README still carries the during-release availability warning.' >&2
-  exit 1
-fi
+  <<<"$normalized_readme_text"
 grep -F -x -q -- '## Contract' "$repository_root/README.md"
 if grep -F -x -q -- '## Development contract' "$repository_root/README.md"; then
   printf '%s\n' 'README still describes the release pairing as developmental.' >&2
@@ -444,6 +444,10 @@ grep -F -q -- 'SKILLS_V030_RELEASE_RED_EXIT=1' \
   "$repository_root/docs/test-evidence/skills-v030-release-red.md"
 grep -F -q -- '91809afe91fec56cd1bfaac5d9328055bb2c79fc' \
   "$repository_root/docs/test-evidence/skills-v030-release-red.md"
+grep -F -q -- 'SKILLS_V040_RELEASE_RED_EXIT=1' \
+  "$repository_root/docs/test-evidence/skills-v040-release-red.md"
+grep -F -q -- '55557e0f105e4d2ea16c3aed7b96ed354fa47071' \
+  "$repository_root/docs/test-evidence/skills-v040-release-red.md"
 publication_evidence="$repository_root/docs/test-evidence/skills-v021-publication.md"
 for publication_claim in \
   'ACCEPTANCE_PUBLICATION_RED_EXIT=1' \
